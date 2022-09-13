@@ -2476,9 +2476,6 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
         var len = okeys.length;
         return function next() {
             var key = okeys[++i];
-            if (key === '__proto__') {
-                return next();
-            }
             return i < len ? {value: obj[key], key} : null;
         };
     }
@@ -2804,7 +2801,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
     /**
      * Produces a new collection of values by mapping each value in `coll` through
      * the `iteratee` function. The `iteratee` is called with an item from `coll`
-     * and a callback for when it has finished processing. Each of these callbacks
+     * and a callback for when it has finished processing. Each of these callback
      * takes 2 arguments: an `error`, and the transformed item from `coll`. If
      * `iteratee` passes an error to its callback, the main `callback` (for the
      * `map` function) is immediately called with the error.
@@ -3370,36 +3367,10 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
     var ARROW_FN_ARGS = /^(?:async\s+)?\(?\s*([^)=]+)\s*\)?(?:\s*=>)/;
     var FN_ARG_SPLIT = /,/;
     var FN_ARG = /(=.+)?(\s*)$/;
-
-    function stripComments(string) {
-        let stripped = '';
-        let index = 0;
-        let endBlockComment = string.indexOf('*/');
-        while (index < string.length) {
-            if (string[index] === '/' && string[index+1] === '/') {
-                // inline comment
-                let endIndex = string.indexOf('\n', index);
-                index = (endIndex === -1) ? string.length : endIndex;
-            } else if ((endBlockComment !== -1) && (string[index] === '/') && (string[index+1] === '*')) {
-                // block comment
-                let endIndex = string.indexOf('*/', index);
-                if (endIndex !== -1) {
-                    index = endIndex + 2;
-                    endBlockComment = string.indexOf('*/', index);
-                } else {
-                    stripped += string[index];
-                    index++;
-                }
-            } else {
-                stripped += string[index];
-                index++;
-            }
-        }
-        return stripped;
-    }
+    var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 
     function parseParams(func) {
-        const src = stripComments(func.toString());
+        const src = func.toString().replace(STRIP_COMMENTS, '');
         let match = src.match(FN_ARGS);
         if (!match) {
             match = src.match(ARROW_FN_ARGS);
@@ -3685,11 +3656,12 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
                 res(args);
             }
 
-            var item = q._createTaskItem(
+            var item = {
                 data,
-                rejectOnError ? promiseCallback :
+                callback: rejectOnError ?
+                    promiseCallback :
                     (callback || promiseCallback)
-            );
+            };
 
             if (insertAtFront) {
                 q._tasks.unshift(item);
@@ -3771,12 +3743,6 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
         var isProcessing = false;
         var q = {
             _tasks: new DLL(),
-            _createTaskItem (data, callback) {
-                return {
-                    data,
-                    callback
-                };
-            },
             *[Symbol.iterator] () {
                 yield* q._tasks[Symbol.iterator]();
             },
@@ -4161,7 +4127,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * app.get('/cats', function(request, response) {
      *     var User = request.models.User;
      *     async.seq(
-     *         User.get.bind(User),  // 'User.get' has signature (id, callback(err, data))
+     *         _.bind(User.get, User),  // 'User.get' has signature (id, callback(err, data))
      *         function(user, fn) {
      *             user.getCats(fn);      // 'getCats' has signature (callback(err, data))
      *         }
@@ -4526,7 +4492,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * Result will be the first item in the array that passes the truth test
      * (iteratee) or the value `undefined` if none passed. Invoked with
      * (err, result).
-     * @returns {Promise} a promise, if a callback is omitted
+     * @returns A Promise, if no callback is passed
      * @example
      *
      * // dir1 is a directory that contains file1.txt, file2.txt
@@ -4598,7 +4564,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * Result will be the first item in the array that passes the truth test
      * (iteratee) or the value `undefined` if none passed. Invoked with
      * (err, result).
-     * @returns {Promise} a promise, if a callback is omitted
+     * @returns a Promise if no callback is passed
      */
     function detectLimit(coll, limit, iteratee, callback) {
         return _createTester(bool => bool, (res, item) => item)(eachOfLimit(limit), coll, iteratee, callback)
@@ -4624,7 +4590,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * Result will be the first item in the array that passes the truth test
      * (iteratee) or the value `undefined` if none passed. Invoked with
      * (err, result).
-     * @returns {Promise} a promise, if a callback is omitted
+     * @returns a Promise if no callback is passed
      */
     function detectSeries(coll, iteratee, callback) {
         return _createTester(bool => bool, (res, item) => item)(eachOfLimit(1), coll, iteratee, callback)
@@ -5795,8 +5761,6 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
         return memoized;
     }
 
-    /* istanbul ignore file */
-
     /**
      * Calls `callback` on a later loop around the event loop. In Node.js this just
      * calls `process.nextTick`.  In the browser it will use `setImmediate` if
@@ -5840,7 +5804,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
 
     var nextTick = wrap(_defer$1);
 
-    var parallel = awaitify((eachfn, tasks, callback) => {
+    var _parallel = awaitify((eachfn, tasks, callback) => {
         var results = isArrayLike(tasks) ? [] : {};
 
         eachfn(tasks, (task, key, taskCb) => {
@@ -6013,8 +5977,8 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * }
      *
      */
-    function parallel$1(tasks, callback) {
-        return parallel(eachOf$1, tasks, callback);
+    function parallel(tasks, callback) {
+        return _parallel(eachOf$1, tasks, callback);
     }
 
     /**
@@ -6038,7 +6002,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * @returns {Promise} a promise, if a callback is not passed
      */
     function parallelLimit(tasks, limit, callback) {
-        return parallel(eachOfLimit(limit), tasks, callback);
+        return _parallel(eachOfLimit(limit), tasks, callback);
     }
 
     /**
@@ -6322,51 +6286,54 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * @param {number} concurrency - An `integer` for determining how many `worker`
      * functions should be run in parallel.  If omitted, the concurrency defaults to
      * `1`.  If the concurrency is `0`, an error is thrown.
-     * @returns {module:ControlFlow.QueueObject} A priorityQueue object to manage the tasks. There are three
+     * @returns {module:ControlFlow.QueueObject} A priorityQueue object to manage the tasks. There are two
      * differences between `queue` and `priorityQueue` objects:
      * * `push(task, priority, [callback])` - `priority` should be a number. If an
      *   array of `tasks` is given, all tasks will be assigned the same priority.
-     * * `pushAsync(task, priority, [callback])` - the same as `priorityQueue.push`,
-     *   except this returns a promise that rejects if an error occurs.
-     * * The `unshift` and `unshiftAsync` methods were removed.
+     * * The `unshift` method was removed.
      */
     function priorityQueue(worker, concurrency) {
         // Start with a normal queue
         var q = queue$1(worker, concurrency);
-
-        var {
-            push,
-            pushAsync
-        } = q;
+        var processingScheduled = false;
 
         q._tasks = new Heap();
-        q._createTaskItem = ({data, priority}, callback) => {
-            return {
-                data,
-                priority,
-                callback
-            };
-        };
-
-        function createDataItems(tasks, priority) {
-            if (!Array.isArray(tasks)) {
-                return {data: tasks, priority};
-            }
-            return tasks.map(data => { return {data, priority}; });
-        }
 
         // Override push to accept second parameter representing priority
-        q.push = function(data, priority = 0, callback) {
-            return push(createDataItems(data, priority), callback);
+        q.push = function(data, priority = 0, callback = () => {}) {
+            if (typeof callback !== 'function') {
+                throw new Error('task callback must be a function');
+            }
+            q.started = true;
+            if (!Array.isArray(data)) {
+                data = [data];
+            }
+            if (data.length === 0 && q.idle()) {
+                // call drain immediately if there are no tasks
+                return setImmediate$1(() => q.drain());
+            }
+
+            for (var i = 0, l = data.length; i < l; i++) {
+                var item = {
+                    data: data[i],
+                    priority,
+                    callback
+                };
+
+                q._tasks.push(item);
+            }
+
+            if (!processingScheduled) {
+                processingScheduled = true;
+                setImmediate$1(() => {
+                    processingScheduled = false;
+                    q.process();
+                });
+            }
         };
 
-        q.pushAsync = function(data, priority = 0, callback) {
-            return pushAsync(createDataItems(data, priority), callback);
-        };
-
-        // Remove unshift functions
+        // Remove unshift function
         delete q.unshift;
-        delete q.unshiftAsync;
 
         return q;
     }
@@ -6387,7 +6354,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * @param {Function} callback - A callback to run once any of the functions have
      * completed. This function gets an error or result from the first function that
      * completed. Invoked with (err, result).
-     * @returns {Promise} a promise, if a callback is omitted
+     * @returns undefined
      * @example
      *
      * async.race([
@@ -7080,7 +7047,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      *
      */
     function series(tasks, callback) {
-        return parallel(eachOfSeries$1, tasks, callback);
+        return _parallel(eachOfSeries$1, tasks, callback);
     }
 
     /**
@@ -7912,7 +7879,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
      * @param {Function} [callback] - An optional callback to run once all the
      * functions have completed. This will be passed the results of the last task's
      * callback. Invoked with (err, [results]).
-     * @returns {Promise} a promise, if a callback is omitted
+     * @returns undefined
      * @example
      *
      * async.waterfall([
@@ -8060,7 +8027,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
         mapValuesSeries,
         memoize,
         nextTick,
-        parallel: parallel$1,
+        parallel,
         parallelLimit,
         priorityQueue,
         queue: queue$1,
@@ -8168,7 +8135,7 @@ module.exports = __webpack_require__(/*! /home/kdeepak/MyWork/Tech/stomp/stompjs
     exports.mapValuesSeries = mapValuesSeries;
     exports.memoize = memoize;
     exports.nextTick = nextTick;
-    exports.parallel = parallel$1;
+    exports.parallel = parallel;
     exports.parallelLimit = parallelLimit;
     exports.priorityQueue = priorityQueue;
     exports.queue = queue$1;
@@ -9413,10 +9380,10 @@ var bigInt = (function (undefined) {
         var digits = toBase(range, BASE).value;
         var result = [], restricted = true;
         for (var i = 0; i < digits.length; i++) {
-            var top = restricted ? digits[i] + (i + 1 < digits.length ? digits[i + 1] / BASE : 0) : BASE;
+            var top = restricted ? digits[i] : BASE;
             var digit = truncate(usedRNG() * top);
             result.push(digit);
-            if (digit < digits[i]) restricted = false;
+            if (digit < top) restricted = false;
         }
         return low.add(Integer.fromArray(result, BASE, false));
     }
@@ -9688,130 +9655,86 @@ if (typeof define === "function" && define.amd) {
 }
 
 },{}],4:[function(require,module,exports){
-exports.Map = Map
 exports.WeakMap = WeakMap
 exports.WeakSet = WeakSet
 exports.Set = Set
 
-/**
- * @param {any} value 
- */
-const isObject = (value) => typeof value === 'object'
-  && value != null
-  && !(value instanceof Boolean)
-  && !(value instanceof Date)
-  && !(value instanceof Number)
-  && !(value instanceof RegExp)
-  && !(value instanceof String)
+function isObject (value) {
+  return typeof value === 'object' && value != null &&
+    !(value instanceof Boolean) &&
+    !(value instanceof Date) &&
+    !(value instanceof Number) &&
+    !(value instanceof RegExp) &&
+    !(value instanceof String)
+}
 
-/**
- * @param {string[]} parts 
- */
-const toPointer = (parts) => '#' + parts.map(part => String(part).replace(/~/g, '~0').replace(/\//g, '~1')).join('/')
-
-/**
- * @returns (key: string | symbol, value: any) => any
- */
-const decycle = () => {
-  const paths = new exports.WeakMap()
-
-  /**
-   * @param {string | symbol} key
-   * @param {any} value
-   * @this object
-   */
-  return function replacer(key, value) {
+function decycle (object) {
+  var seen = new exports.WeakSet()
+  var paths = new exports.WeakMap()
+  
+  return function replacer (key, value) {
     if (key !== '$ref' && isObject(value)) {
-      const seen = paths.has(value)
-
-      if (seen) {
-        return { $ref: toPointer(paths.get(value)) }
+      if (seen.has(value)) {
+        return {$ref: toPointer(paths.get(value))}
       } else {
-        paths.set(value, [...paths.get(this) ?? [], key])
+        paths.set(value, (paths.get(this)||[]).concat([key]))
+        seen.add(value)
       }
     }
 
     return value
   }
+
+  function toPointer (parts) {
+    return '#'+parts.map(function(part) {
+      return part.toString().replace(/~/g, '~0').replace(/\//g, '~1')
+    }).join('/')
+  }
 }
 
-/**
- * @returns (key: string | symbol, value: any) => any
- */
-function retrocycle() {
-  const parents = new exports.WeakMap()
-  const keys = new exports.WeakMap()
-  const refs = new exports.Set()
+function retrocycle () {
+  var parents = new exports.WeakMap()
+  var refs = new exports.Set()
 
-  /**
-   * @param {{ $ref: string }} ref
-   * @this object
-   */
-  function dereference(ref) {
-    const parts = ref.$ref.slice(1).split('/')
-    let key, parent, value = this
-
-    for (var i = 0; i < parts.length; i++) {
-      key = parts[i].replace(/~1/g, '/').replace(/~0/g, '~')
-      value = value[key]
-    }
-
-    parent = parents.get(ref)
-    parent[keys.get(ref)] = value
-  }
-
-  /**
-   * @param {string | symbol} key
-   * @param {any} value
-   * @this object
-   */
-  return function reviver(key, value) {
+  return function reviver (key, value) {
     if (key === '$ref') {
       refs.add(this)
     } else
-      if (isObject(value)) {
-        var isRoot = key === '' && Object.keys(this).length === 1
-        if (isRoot) {
-          refs.forEach(dereference, this)
-        } else {
-          parents.set(value, this)
-          keys.set(value, key)
-        }
+    if (isObject(value)) {
+      var isRoot = key === '' && Object.keys(this).length === 1
+      if (isRoot) {
+        refs.forEach(dereference, this)
+      } else {
+        parents.set(value, this)
       }
+    }
 
     return value
   }
+
+  function dereference (ref) {
+    var parts = ref.$ref.slice(1).split('/')
+    var key, parent, value = this
+    for (var i=0; i<parts.length; i++) {
+      key = parts[i].replace(/~1/g, '/').replace(/~0/g, '~')
+      value = value[key]
+    }
+    parent = parents.get(ref)
+    parent[key] = value
+  }
+
 }
 
-/**
- * @param {{ parse: typeof JSON.parse, stringify: typeof JSON.stringify }} JSON
- */
-const extend = (JSON) => {
+function augment (JSON) {
   return Object.defineProperties(JSON, {
-    decycle: {
-      /**
-       * @param {any} object
-       * @param {string | number} space
-       * @returns string
-       */
-      value: (object, space) => JSON.stringify(object, decycle(), space)
-    },
-    retrocycle: {
-      /**
-       * @param {string} s 
-       * @returns any
-       */
-      value: (s) => JSON.parse(s, retrocycle())
-    }
+    decycle: {value: decycle},
+    retrocycle: {value: retrocycle}
   })
 }
 
-Object.assign(exports, {
-  decycle,
-  retrocycle,
-  extend
-})
-
+exports.decycle = decycle
+exports.retrocycle = retrocycle
+exports.extend = augment
 },{}],5:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
@@ -10078,882 +10001,6 @@ exports.clearImmediate = typeof clearImmediate === "function" ? clearImmediate :
 };
 }).call(this)}).call(this,require("timers").setImmediate,require("timers").clearImmediate)
 },{"process/browser.js":5,"timers":6}],7:[function(require,module,exports){
-/////////////////////////////////////////////////////////////////////////////////
-/* UAParser.js v1.0.2
-   Copyright © 2012-2021 Faisal Salman <f@faisalman.com>
-   MIT License *//*
-   Detect Browser, Engine, OS, CPU, and Device type/model from User-Agent data.
-   Supports browser & node.js environment. 
-   Demo   : https://faisalman.github.io/ua-parser-js
-   Source : https://github.com/faisalman/ua-parser-js */
-/////////////////////////////////////////////////////////////////////////////////
-
-(function (window, undefined) {
-
-    'use strict';
-
-    //////////////
-    // Constants
-    /////////////
-
-
-    var LIBVERSION  = '1.0.2',
-        EMPTY       = '',
-        UNKNOWN     = '?',
-        FUNC_TYPE   = 'function',
-        UNDEF_TYPE  = 'undefined',
-        OBJ_TYPE    = 'object',
-        STR_TYPE    = 'string',
-        MAJOR       = 'major',
-        MODEL       = 'model',
-        NAME        = 'name',
-        TYPE        = 'type',
-        VENDOR      = 'vendor',
-        VERSION     = 'version',
-        ARCHITECTURE= 'architecture',
-        CONSOLE     = 'console',
-        MOBILE      = 'mobile',
-        TABLET      = 'tablet',
-        SMARTTV     = 'smarttv',
-        WEARABLE    = 'wearable',
-        EMBEDDED    = 'embedded',
-        UA_MAX_LENGTH = 255;
-
-    var AMAZON  = 'Amazon',
-        APPLE   = 'Apple',
-        ASUS    = 'ASUS',
-        BLACKBERRY = 'BlackBerry',
-        BROWSER = 'Browser',
-        CHROME  = 'Chrome',
-        EDGE    = 'Edge',
-        FIREFOX = 'Firefox',
-        GOOGLE  = 'Google',
-        HUAWEI  = 'Huawei',
-        LG      = 'LG',
-        MICROSOFT = 'Microsoft',
-        MOTOROLA  = 'Motorola',
-        OPERA   = 'Opera',
-        SAMSUNG = 'Samsung',
-        SONY    = 'Sony',
-        XIAOMI  = 'Xiaomi',
-        ZEBRA   = 'Zebra',
-        FACEBOOK   = 'Facebook';
-
-    ///////////
-    // Helper
-    //////////
-
-    var extend = function (regexes, extensions) {
-            var mergedRegexes = {};
-            for (var i in regexes) {
-                if (extensions[i] && extensions[i].length % 2 === 0) {
-                    mergedRegexes[i] = extensions[i].concat(regexes[i]);
-                } else {
-                    mergedRegexes[i] = regexes[i];
-                }
-            }
-            return mergedRegexes;
-        },
-        enumerize = function (arr) {
-            var enums = {};
-            for (var i=0; i<arr.length; i++) {
-                enums[arr[i].toUpperCase()] = arr[i];
-            }
-            return enums;
-        },
-        has = function (str1, str2) {
-            return typeof str1 === STR_TYPE ? lowerize(str2).indexOf(lowerize(str1)) !== -1 : false;
-        },
-        lowerize = function (str) {
-            return str.toLowerCase();
-        },
-        majorize = function (version) {
-            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g, EMPTY).split('.')[0] : undefined;
-        },
-        trim = function (str, len) {
-            if (typeof(str) === STR_TYPE) {
-                str = str.replace(/^\s\s*/, EMPTY).replace(/\s\s*$/, EMPTY);
-                return typeof(len) === UNDEF_TYPE ? str : str.substring(0, UA_MAX_LENGTH);
-            }
-    };
-
-    ///////////////
-    // Map helper
-    //////////////
-
-    var rgxMapper = function (ua, arrays) {
-
-            var i = 0, j, k, p, q, matches, match;
-
-            // loop through all regexes maps
-            while (i < arrays.length && !matches) {
-
-                var regex = arrays[i],       // even sequence (0,2,4,..)
-                    props = arrays[i + 1];   // odd sequence (1,3,5,..)
-                j = k = 0;
-
-                // try matching uastring with regexes
-                while (j < regex.length && !matches) {
-
-                    matches = regex[j++].exec(ua);
-
-                    if (!!matches) {
-                        for (p = 0; p < props.length; p++) {
-                            match = matches[++k];
-                            q = props[p];
-                            // check if given property is actually array
-                            if (typeof q === OBJ_TYPE && q.length > 0) {
-                                if (q.length === 2) {
-                                    if (typeof q[1] == FUNC_TYPE) {
-                                        // assign modified match
-                                        this[q[0]] = q[1].call(this, match);
-                                    } else {
-                                        // assign given value, ignore regex match
-                                        this[q[0]] = q[1];
-                                    }
-                                } else if (q.length === 3) {
-                                    // check whether function or regex
-                                    if (typeof q[1] === FUNC_TYPE && !(q[1].exec && q[1].test)) {
-                                        // call function (usually string mapper)
-                                        this[q[0]] = match ? q[1].call(this, match, q[2]) : undefined;
-                                    } else {
-                                        // sanitize match using given regex
-                                        this[q[0]] = match ? match.replace(q[1], q[2]) : undefined;
-                                    }
-                                } else if (q.length === 4) {
-                                        this[q[0]] = match ? q[3].call(this, match.replace(q[1], q[2])) : undefined;
-                                }
-                            } else {
-                                this[q] = match ? match : undefined;
-                            }
-                        }
-                    }
-                }
-                i += 2;
-            }
-        },
-
-        strMapper = function (str, map) {
-
-            for (var i in map) {
-                // check if current value is array
-                if (typeof map[i] === OBJ_TYPE && map[i].length > 0) {
-                    for (var j = 0; j < map[i].length; j++) {
-                        if (has(map[i][j], str)) {
-                            return (i === UNKNOWN) ? undefined : i;
-                        }
-                    }
-                } else if (has(map[i], str)) {
-                    return (i === UNKNOWN) ? undefined : i;
-                }
-            }
-            return str;
-    };
-
-    ///////////////
-    // String map
-    //////////////
-
-    // Safari < 3.0
-    var oldSafariMap = {
-            '1.0'   : '/8',
-            '1.2'   : '/1',
-            '1.3'   : '/3',
-            '2.0'   : '/412',
-            '2.0.2' : '/416',
-            '2.0.3' : '/417',
-            '2.0.4' : '/419',
-            '?'     : '/'
-        },
-        windowsVersionMap = {
-            'ME'        : '4.90',
-            'NT 3.11'   : 'NT3.51',
-            'NT 4.0'    : 'NT4.0',
-            '2000'      : 'NT 5.0',
-            'XP'        : ['NT 5.1', 'NT 5.2'],
-            'Vista'     : 'NT 6.0',
-            '7'         : 'NT 6.1',
-            '8'         : 'NT 6.2',
-            '8.1'       : 'NT 6.3',
-            '10'        : ['NT 6.4', 'NT 10.0'],
-            'RT'        : 'ARM'
-    };
-
-    //////////////
-    // Regex map
-    /////////////
-
-    var regexes = {
-
-        browser : [[
-
-            /\b(?:crmo|crios)\/([\w\.]+)/i                                      // Chrome for Android/iOS
-            ], [VERSION, [NAME, 'Chrome']], [
-            /edg(?:e|ios|a)?\/([\w\.]+)/i                                       // Microsoft Edge
-            ], [VERSION, [NAME, 'Edge']], [
-
-            // Presto based
-            /(opera mini)\/([-\w\.]+)/i,                                        // Opera Mini
-            /(opera [mobiletab]{3,6})\b.+version\/([-\w\.]+)/i,                 // Opera Mobi/Tablet
-            /(opera)(?:.+version\/|[\/ ]+)([\w\.]+)/i                           // Opera
-            ], [NAME, VERSION], [
-            /opios[\/ ]+([\w\.]+)/i                                             // Opera mini on iphone >= 8.0
-            ], [VERSION, [NAME, OPERA+' Mini']], [
-            /\bopr\/([\w\.]+)/i                                                 // Opera Webkit
-            ], [VERSION, [NAME, OPERA]], [
-
-            // Mixed
-            /(kindle)\/([\w\.]+)/i,                                             // Kindle
-            /(lunascape|maxthon|netfront|jasmine|blazer)[\/ ]?([\w\.]*)/i,      // Lunascape/Maxthon/Netfront/Jasmine/Blazer
-            // Trident based
-            /(avant |iemobile|slim)(?:browser)?[\/ ]?([\w\.]*)/i,               // Avant/IEMobile/SlimBrowser
-            /(ba?idubrowser)[\/ ]?([\w\.]+)/i,                                  // Baidu Browser
-            /(?:ms|\()(ie) ([\w\.]+)/i,                                         // Internet Explorer
-
-            // Webkit/KHTML based                                               // Flock/RockMelt/Midori/Epiphany/Silk/Skyfire/Bolt/Iron/Iridium/PhantomJS/Bowser/QupZilla/Falkon
-            /(flock|rockmelt|midori|epiphany|silk|skyfire|ovibrowser|bolt|iron|vivaldi|iridium|phantomjs|bowser|quark|qupzilla|falkon|rekonq|puffin|brave|whale|qqbrowserlite|qq)\/([-\w\.]+)/i,
-                                                                                // Rekonq/Puffin/Brave/Whale/QQBrowserLite/QQ, aka ShouQ
-            /(weibo)__([\d\.]+)/i                                               // Weibo
-            ], [NAME, VERSION], [
-            /(?:\buc? ?browser|(?:juc.+)ucweb)[\/ ]?([\w\.]+)/i                 // UCBrowser
-            ], [VERSION, [NAME, 'UC'+BROWSER]], [
-            /\bqbcore\/([\w\.]+)/i                                              // WeChat Desktop for Windows Built-in Browser
-            ], [VERSION, [NAME, 'WeChat(Win) Desktop']], [
-            /micromessenger\/([\w\.]+)/i                                        // WeChat
-            ], [VERSION, [NAME, 'WeChat']], [
-            /konqueror\/([\w\.]+)/i                                             // Konqueror
-            ], [VERSION, [NAME, 'Konqueror']], [
-            /trident.+rv[: ]([\w\.]{1,9})\b.+like gecko/i                       // IE11
-            ], [VERSION, [NAME, 'IE']], [
-            /yabrowser\/([\w\.]+)/i                                             // Yandex
-            ], [VERSION, [NAME, 'Yandex']], [
-            /(avast|avg)\/([\w\.]+)/i                                           // Avast/AVG Secure Browser
-            ], [[NAME, /(.+)/, '$1 Secure '+BROWSER], VERSION], [
-            /\bfocus\/([\w\.]+)/i                                               // Firefox Focus
-            ], [VERSION, [NAME, FIREFOX+' Focus']], [
-            /\bopt\/([\w\.]+)/i                                                 // Opera Touch
-            ], [VERSION, [NAME, OPERA+' Touch']], [
-            /coc_coc\w+\/([\w\.]+)/i                                            // Coc Coc Browser
-            ], [VERSION, [NAME, 'Coc Coc']], [
-            /dolfin\/([\w\.]+)/i                                                // Dolphin
-            ], [VERSION, [NAME, 'Dolphin']], [
-            /coast\/([\w\.]+)/i                                                 // Opera Coast
-            ], [VERSION, [NAME, OPERA+' Coast']], [
-            /miuibrowser\/([\w\.]+)/i                                           // MIUI Browser
-            ], [VERSION, [NAME, 'MIUI '+BROWSER]], [
-            /fxios\/([-\w\.]+)/i                                                // Firefox for iOS
-            ], [VERSION, [NAME, FIREFOX]], [
-            /\bqihu|(qi?ho?o?|360)browser/i                                     // 360
-            ], [[NAME, '360 '+BROWSER]], [
-            /(oculus|samsung|sailfish)browser\/([\w\.]+)/i
-            ], [[NAME, /(.+)/, '$1 '+BROWSER], VERSION], [                      // Oculus/Samsung/Sailfish Browser
-            /(comodo_dragon)\/([\w\.]+)/i                                       // Comodo Dragon
-            ], [[NAME, /_/g, ' '], VERSION], [
-            /(electron)\/([\w\.]+) safari/i,                                    // Electron-based App
-            /(tesla)(?: qtcarbrowser|\/(20\d\d\.[-\w\.]+))/i,                   // Tesla
-            /m?(qqbrowser|baiduboxapp|2345Explorer)[\/ ]?([\w\.]+)/i            // QQBrowser/Baidu App/2345 Browser
-            ], [NAME, VERSION], [
-            /(metasr)[\/ ]?([\w\.]+)/i,                                         // SouGouBrowser
-            /(lbbrowser)/i                                                      // LieBao Browser
-            ], [NAME], [
-
-            // WebView
-            /((?:fban\/fbios|fb_iab\/fb4a)(?!.+fbav)|;fbav\/([\w\.]+);)/i       // Facebook App for iOS & Android
-            ], [[NAME, FACEBOOK], VERSION], [
-            /safari (line)\/([\w\.]+)/i,                                        // Line App for iOS
-            /\b(line)\/([\w\.]+)\/iab/i,                                        // Line App for Android
-            /(chromium|instagram)[\/ ]([-\w\.]+)/i                              // Chromium/Instagram
-            ], [NAME, VERSION], [
-            /\bgsa\/([\w\.]+) .*safari\//i                                      // Google Search Appliance on iOS
-            ], [VERSION, [NAME, 'GSA']], [
-
-            /headlesschrome(?:\/([\w\.]+)| )/i                                  // Chrome Headless
-            ], [VERSION, [NAME, CHROME+' Headless']], [
-
-            / wv\).+(chrome)\/([\w\.]+)/i                                       // Chrome WebView
-            ], [[NAME, CHROME+' WebView'], VERSION], [
-
-            /droid.+ version\/([\w\.]+)\b.+(?:mobile safari|safari)/i           // Android Browser
-            ], [VERSION, [NAME, 'Android '+BROWSER]], [
-
-            /(chrome|omniweb|arora|[tizenoka]{5} ?browser)\/v?([\w\.]+)/i       // Chrome/OmniWeb/Arora/Tizen/Nokia
-            ], [NAME, VERSION], [
-
-            /version\/([\w\.]+) .*mobile\/\w+ (safari)/i                        // Mobile Safari
-            ], [VERSION, [NAME, 'Mobile Safari']], [
-            /version\/([\w\.]+) .*(mobile ?safari|safari)/i                     // Safari & Safari Mobile
-            ], [VERSION, NAME], [
-            /webkit.+?(mobile ?safari|safari)(\/[\w\.]+)/i                      // Safari < 3.0
-            ], [NAME, [VERSION, strMapper, oldSafariMap]], [
-
-            /(webkit|khtml)\/([\w\.]+)/i
-            ], [NAME, VERSION], [
-
-            // Gecko based
-            /(navigator|netscape\d?)\/([-\w\.]+)/i                              // Netscape
-            ], [[NAME, 'Netscape'], VERSION], [
-            /mobile vr; rv:([\w\.]+)\).+firefox/i                               // Firefox Reality
-            ], [VERSION, [NAME, FIREFOX+' Reality']], [
-            /ekiohf.+(flow)\/([\w\.]+)/i,                                       // Flow
-            /(swiftfox)/i,                                                      // Swiftfox
-            /(icedragon|iceweasel|camino|chimera|fennec|maemo browser|minimo|conkeror|klar)[\/ ]?([\w\.\+]+)/i,
-                                                                                // IceDragon/Iceweasel/Camino/Chimera/Fennec/Maemo/Minimo/Conkeror/Klar
-            /(seamonkey|k-meleon|icecat|iceape|firebird|phoenix|palemoon|basilisk|waterfox)\/([-\w\.]+)$/i,
-                                                                                // Firefox/SeaMonkey/K-Meleon/IceCat/IceApe/Firebird/Phoenix
-            /(firefox)\/([\w\.]+)/i,                                            // Other Firefox-based
-            /(mozilla)\/([\w\.]+) .+rv\:.+gecko\/\d+/i,                         // Mozilla
-
-            // Other
-            /(polaris|lynx|dillo|icab|doris|amaya|w3m|netsurf|sleipnir|obigo|mosaic|(?:go|ice|up)[\. ]?browser)[-\/ ]?v?([\w\.]+)/i,
-                                                                                // Polaris/Lynx/Dillo/iCab/Doris/Amaya/w3m/NetSurf/Sleipnir/Obigo/Mosaic/Go/ICE/UP.Browser
-            /(links) \(([\w\.]+)/i                                              // Links
-            ], [NAME, VERSION]
-        ],
-
-        cpu : [[
-
-            /(?:(amd|x(?:(?:86|64)[-_])?|wow|win)64)[;\)]/i                     // AMD64 (x64)
-            ], [[ARCHITECTURE, 'amd64']], [
-
-            /(ia32(?=;))/i                                                      // IA32 (quicktime)
-            ], [[ARCHITECTURE, lowerize]], [
-
-            /((?:i[346]|x)86)[;\)]/i                                            // IA32 (x86)
-            ], [[ARCHITECTURE, 'ia32']], [
-
-            /\b(aarch64|arm(v?8e?l?|_?64))\b/i                                 // ARM64
-            ], [[ARCHITECTURE, 'arm64']], [
-
-            /\b(arm(?:v[67])?ht?n?[fl]p?)\b/i                                   // ARMHF
-            ], [[ARCHITECTURE, 'armhf']], [
-
-            // PocketPC mistakenly identified as PowerPC
-            /windows (ce|mobile); ppc;/i
-            ], [[ARCHITECTURE, 'arm']], [
-
-            /((?:ppc|powerpc)(?:64)?)(?: mac|;|\))/i                            // PowerPC
-            ], [[ARCHITECTURE, /ower/, EMPTY, lowerize]], [
-
-            /(sun4\w)[;\)]/i                                                    // SPARC
-            ], [[ARCHITECTURE, 'sparc']], [
-
-            /((?:avr32|ia64(?=;))|68k(?=\))|\barm(?=v(?:[1-7]|[5-7]1)l?|;|eabi)|(?=atmel )avr|(?:irix|mips|sparc)(?:64)?\b|pa-risc)/i
-                                                                                // IA64, 68K, ARM/64, AVR/32, IRIX/64, MIPS/64, SPARC/64, PA-RISC
-            ], [[ARCHITECTURE, lowerize]]
-        ],
-
-        device : [[
-
-            //////////////////////////
-            // MOBILES & TABLETS
-            // Ordered by popularity
-            /////////////////////////
-
-            // Samsung
-            /\b(sch-i[89]0\d|shw-m380s|sm-[pt]\w{2,4}|gt-[pn]\d{2,4}|sgh-t8[56]9|nexus 10)/i
-            ], [MODEL, [VENDOR, SAMSUNG], [TYPE, TABLET]], [
-            /\b((?:s[cgp]h|gt|sm)-\w+|galaxy nexus)/i,
-            /samsung[- ]([-\w]+)/i,
-            /sec-(sgh\w+)/i
-            ], [MODEL, [VENDOR, SAMSUNG], [TYPE, MOBILE]], [
-
-            // Apple
-            /\((ip(?:hone|od)[\w ]*);/i                                         // iPod/iPhone
-            ], [MODEL, [VENDOR, APPLE], [TYPE, MOBILE]], [
-            /\((ipad);[-\w\),; ]+apple/i,                                       // iPad
-            /applecoremedia\/[\w\.]+ \((ipad)/i,
-            /\b(ipad)\d\d?,\d\d?[;\]].+ios/i
-            ], [MODEL, [VENDOR, APPLE], [TYPE, TABLET]], [
-
-            // Huawei
-            /\b((?:ag[rs][23]?|bah2?|sht?|btv)-a?[lw]\d{2})\b(?!.+d\/s)/i
-            ], [MODEL, [VENDOR, HUAWEI], [TYPE, TABLET]], [
-            /(?:huawei|honor)([-\w ]+)[;\)]/i,
-            /\b(nexus 6p|\w{2,4}-[atu]?[ln][01259x][012359][an]?)\b(?!.+d\/s)/i
-            ], [MODEL, [VENDOR, HUAWEI], [TYPE, MOBILE]], [
-
-            // Xiaomi
-            /\b(poco[\w ]+)(?: bui|\))/i,                                       // Xiaomi POCO
-            /\b; (\w+) build\/hm\1/i,                                           // Xiaomi Hongmi 'numeric' models
-            /\b(hm[-_ ]?note?[_ ]?(?:\d\w)?) bui/i,                             // Xiaomi Hongmi
-            /\b(redmi[\-_ ]?(?:note|k)?[\w_ ]+)(?: bui|\))/i,                   // Xiaomi Redmi
-            /\b(mi[-_ ]?(?:a\d|one|one[_ ]plus|note lte|max)?[_ ]?(?:\d?\w?)[_ ]?(?:plus|se|lite)?)(?: bui|\))/i // Xiaomi Mi
-            ], [[MODEL, /_/g, ' '], [VENDOR, XIAOMI], [TYPE, MOBILE]], [
-            /\b(mi[-_ ]?(?:pad)(?:[\w_ ]+))(?: bui|\))/i                        // Mi Pad tablets
-            ],[[MODEL, /_/g, ' '], [VENDOR, XIAOMI], [TYPE, TABLET]], [
-
-            // OPPO
-            /; (\w+) bui.+ oppo/i,
-            /\b(cph[12]\d{3}|p(?:af|c[al]|d\w|e[ar])[mt]\d0|x9007|a101op)\b/i
-            ], [MODEL, [VENDOR, 'OPPO'], [TYPE, MOBILE]], [
-
-            // Vivo
-            /vivo (\w+)(?: bui|\))/i,
-            /\b(v[12]\d{3}\w?[at])(?: bui|;)/i
-            ], [MODEL, [VENDOR, 'Vivo'], [TYPE, MOBILE]], [
-
-            // Realme
-            /\b(rmx[12]\d{3})(?: bui|;|\))/i
-            ], [MODEL, [VENDOR, 'Realme'], [TYPE, MOBILE]], [
-
-            // Motorola
-            /\b(milestone|droid(?:[2-4x]| (?:bionic|x2|pro|razr))?:?( 4g)?)\b[\w ]+build\//i,
-            /\bmot(?:orola)?[- ](\w*)/i,
-            /((?:moto[\w\(\) ]+|xt\d{3,4}|nexus 6)(?= bui|\)))/i
-            ], [MODEL, [VENDOR, MOTOROLA], [TYPE, MOBILE]], [
-            /\b(mz60\d|xoom[2 ]{0,2}) build\//i
-            ], [MODEL, [VENDOR, MOTOROLA], [TYPE, TABLET]], [
-
-            // LG
-            /((?=lg)?[vl]k\-?\d{3}) bui| 3\.[-\w; ]{10}lg?-([06cv9]{3,4})/i
-            ], [MODEL, [VENDOR, LG], [TYPE, TABLET]], [
-            /(lm(?:-?f100[nv]?|-[\w\.]+)(?= bui|\))|nexus [45])/i,
-            /\blg[-e;\/ ]+((?!browser|netcast|android tv)\w+)/i,
-            /\blg-?([\d\w]+) bui/i
-            ], [MODEL, [VENDOR, LG], [TYPE, MOBILE]], [
-
-            // Lenovo
-            /(ideatab[-\w ]+)/i,
-            /lenovo ?(s[56]000[-\w]+|tab(?:[\w ]+)|yt[-\d\w]{6}|tb[-\d\w]{6})/i
-            ], [MODEL, [VENDOR, 'Lenovo'], [TYPE, TABLET]], [
-
-            // Nokia
-            /(?:maemo|nokia).*(n900|lumia \d+)/i,
-            /nokia[-_ ]?([-\w\.]*)/i
-            ], [[MODEL, /_/g, ' '], [VENDOR, 'Nokia'], [TYPE, MOBILE]], [
-
-            // Google
-            /(pixel c)\b/i                                                      // Google Pixel C
-            ], [MODEL, [VENDOR, GOOGLE], [TYPE, TABLET]], [
-            /droid.+; (pixel[\daxl ]{0,6})(?: bui|\))/i                         // Google Pixel
-            ], [MODEL, [VENDOR, GOOGLE], [TYPE, MOBILE]], [
-
-            // Sony
-            /droid.+ ([c-g]\d{4}|so[-gl]\w+|xq-a\w[4-7][12])(?= bui|\).+chrome\/(?![1-6]{0,1}\d\.))/i
-            ], [MODEL, [VENDOR, SONY], [TYPE, MOBILE]], [
-            /sony tablet [ps]/i,
-            /\b(?:sony)?sgp\w+(?: bui|\))/i
-            ], [[MODEL, 'Xperia Tablet'], [VENDOR, SONY], [TYPE, TABLET]], [
-
-            // OnePlus
-            / (kb2005|in20[12]5|be20[12][59])\b/i,
-            /(?:one)?(?:plus)? (a\d0\d\d)(?: b|\))/i
-            ], [MODEL, [VENDOR, 'OnePlus'], [TYPE, MOBILE]], [
-
-            // Amazon
-            /(alexa)webm/i,
-            /(kf[a-z]{2}wi)( bui|\))/i,                                         // Kindle Fire without Silk
-            /(kf[a-z]+)( bui|\)).+silk\//i                                      // Kindle Fire HD
-            ], [MODEL, [VENDOR, AMAZON], [TYPE, TABLET]], [
-            /((?:sd|kf)[0349hijorstuw]+)( bui|\)).+silk\//i                     // Fire Phone
-            ], [[MODEL, /(.+)/g, 'Fire Phone $1'], [VENDOR, AMAZON], [TYPE, MOBILE]], [
-
-            // BlackBerry
-            /(playbook);[-\w\),; ]+(rim)/i                                      // BlackBerry PlayBook
-            ], [MODEL, VENDOR, [TYPE, TABLET]], [
-            /\b((?:bb[a-f]|st[hv])100-\d)/i,
-            /\(bb10; (\w+)/i                                                    // BlackBerry 10
-            ], [MODEL, [VENDOR, BLACKBERRY], [TYPE, MOBILE]], [
-
-            // Asus
-            /(?:\b|asus_)(transfo[prime ]{4,10} \w+|eeepc|slider \w+|nexus 7|padfone|p00[cj])/i
-            ], [MODEL, [VENDOR, ASUS], [TYPE, TABLET]], [
-            / (z[bes]6[027][012][km][ls]|zenfone \d\w?)\b/i
-            ], [MODEL, [VENDOR, ASUS], [TYPE, MOBILE]], [
-
-            // HTC
-            /(nexus 9)/i                                                        // HTC Nexus 9
-            ], [MODEL, [VENDOR, 'HTC'], [TYPE, TABLET]], [
-            /(htc)[-;_ ]{1,2}([\w ]+(?=\)| bui)|\w+)/i,                         // HTC
-
-            // ZTE
-            /(zte)[- ]([\w ]+?)(?: bui|\/|\))/i,
-            /(alcatel|geeksphone|nexian|panasonic|sony)[-_ ]?([-\w]*)/i         // Alcatel/GeeksPhone/Nexian/Panasonic/Sony
-            ], [VENDOR, [MODEL, /_/g, ' '], [TYPE, MOBILE]], [
-
-            // Acer
-            /droid.+; ([ab][1-7]-?[0178a]\d\d?)/i
-            ], [MODEL, [VENDOR, 'Acer'], [TYPE, TABLET]], [
-
-            // Meizu
-            /droid.+; (m[1-5] note) bui/i,
-            /\bmz-([-\w]{2,})/i
-            ], [MODEL, [VENDOR, 'Meizu'], [TYPE, MOBILE]], [
-
-            // Sharp
-            /\b(sh-?[altvz]?\d\d[a-ekm]?)/i
-            ], [MODEL, [VENDOR, 'Sharp'], [TYPE, MOBILE]], [
-
-            // MIXED
-            /(blackberry|benq|palm(?=\-)|sonyericsson|acer|asus|dell|meizu|motorola|polytron)[-_ ]?([-\w]*)/i,
-                                                                                // BlackBerry/BenQ/Palm/Sony-Ericsson/Acer/Asus/Dell/Meizu/Motorola/Polytron
-            /(hp) ([\w ]+\w)/i,                                                 // HP iPAQ
-            /(asus)-?(\w+)/i,                                                   // Asus
-            /(microsoft); (lumia[\w ]+)/i,                                      // Microsoft Lumia
-            /(lenovo)[-_ ]?([-\w]+)/i,                                          // Lenovo
-            /(jolla)/i,                                                         // Jolla
-            /(oppo) ?([\w ]+) bui/i                                             // OPPO
-            ], [VENDOR, MODEL, [TYPE, MOBILE]], [
-
-            /(archos) (gamepad2?)/i,                                            // Archos
-            /(hp).+(touchpad(?!.+tablet)|tablet)/i,                             // HP TouchPad
-            /(kindle)\/([\w\.]+)/i,                                             // Kindle
-            /(nook)[\w ]+build\/(\w+)/i,                                        // Nook
-            /(dell) (strea[kpr\d ]*[\dko])/i,                                   // Dell Streak
-            /(le[- ]+pan)[- ]+(\w{1,9}) bui/i,                                  // Le Pan Tablets
-            /(trinity)[- ]*(t\d{3}) bui/i,                                      // Trinity Tablets
-            /(gigaset)[- ]+(q\w{1,9}) bui/i,                                    // Gigaset Tablets
-            /(vodafone) ([\w ]+)(?:\)| bui)/i                                   // Vodafone
-            ], [VENDOR, MODEL, [TYPE, TABLET]], [
-
-            /(surface duo)/i                                                    // Surface Duo
-            ], [MODEL, [VENDOR, MICROSOFT], [TYPE, TABLET]], [
-            /droid [\d\.]+; (fp\du?)(?: b|\))/i                                 // Fairphone
-            ], [MODEL, [VENDOR, 'Fairphone'], [TYPE, MOBILE]], [
-            /(u304aa)/i                                                         // AT&T
-            ], [MODEL, [VENDOR, 'AT&T'], [TYPE, MOBILE]], [
-            /\bsie-(\w*)/i                                                      // Siemens
-            ], [MODEL, [VENDOR, 'Siemens'], [TYPE, MOBILE]], [
-            /\b(rct\w+) b/i                                                     // RCA Tablets
-            ], [MODEL, [VENDOR, 'RCA'], [TYPE, TABLET]], [
-            /\b(venue[\d ]{2,7}) b/i                                            // Dell Venue Tablets
-            ], [MODEL, [VENDOR, 'Dell'], [TYPE, TABLET]], [
-            /\b(q(?:mv|ta)\w+) b/i                                              // Verizon Tablet
-            ], [MODEL, [VENDOR, 'Verizon'], [TYPE, TABLET]], [
-            /\b(?:barnes[& ]+noble |bn[rt])([\w\+ ]*) b/i                       // Barnes & Noble Tablet
-            ], [MODEL, [VENDOR, 'Barnes & Noble'], [TYPE, TABLET]], [
-            /\b(tm\d{3}\w+) b/i
-            ], [MODEL, [VENDOR, 'NuVision'], [TYPE, TABLET]], [
-            /\b(k88) b/i                                                        // ZTE K Series Tablet
-            ], [MODEL, [VENDOR, 'ZTE'], [TYPE, TABLET]], [
-            /\b(nx\d{3}j) b/i                                                   // ZTE Nubia
-            ], [MODEL, [VENDOR, 'ZTE'], [TYPE, MOBILE]], [
-            /\b(gen\d{3}) b.+49h/i                                              // Swiss GEN Mobile
-            ], [MODEL, [VENDOR, 'Swiss'], [TYPE, MOBILE]], [
-            /\b(zur\d{3}) b/i                                                   // Swiss ZUR Tablet
-            ], [MODEL, [VENDOR, 'Swiss'], [TYPE, TABLET]], [
-            /\b((zeki)?tb.*\b) b/i                                              // Zeki Tablets
-            ], [MODEL, [VENDOR, 'Zeki'], [TYPE, TABLET]], [
-            /\b([yr]\d{2}) b/i,
-            /\b(dragon[- ]+touch |dt)(\w{5}) b/i                                // Dragon Touch Tablet
-            ], [[VENDOR, 'Dragon Touch'], MODEL, [TYPE, TABLET]], [
-            /\b(ns-?\w{0,9}) b/i                                                // Insignia Tablets
-            ], [MODEL, [VENDOR, 'Insignia'], [TYPE, TABLET]], [
-            /\b((nxa|next)-?\w{0,9}) b/i                                        // NextBook Tablets
-            ], [MODEL, [VENDOR, 'NextBook'], [TYPE, TABLET]], [
-            /\b(xtreme\_)?(v(1[045]|2[015]|[3469]0|7[05])) b/i                  // Voice Xtreme Phones
-            ], [[VENDOR, 'Voice'], MODEL, [TYPE, MOBILE]], [
-            /\b(lvtel\-)?(v1[12]) b/i                                           // LvTel Phones
-            ], [[VENDOR, 'LvTel'], MODEL, [TYPE, MOBILE]], [
-            /\b(ph-1) /i                                                        // Essential PH-1
-            ], [MODEL, [VENDOR, 'Essential'], [TYPE, MOBILE]], [
-            /\b(v(100md|700na|7011|917g).*\b) b/i                               // Envizen Tablets
-            ], [MODEL, [VENDOR, 'Envizen'], [TYPE, TABLET]], [
-            /\b(trio[-\w\. ]+) b/i                                              // MachSpeed Tablets
-            ], [MODEL, [VENDOR, 'MachSpeed'], [TYPE, TABLET]], [
-            /\btu_(1491) b/i                                                    // Rotor Tablets
-            ], [MODEL, [VENDOR, 'Rotor'], [TYPE, TABLET]], [
-            /(shield[\w ]+) b/i                                                 // Nvidia Shield Tablets
-            ], [MODEL, [VENDOR, 'Nvidia'], [TYPE, TABLET]], [
-            /(sprint) (\w+)/i                                                   // Sprint Phones
-            ], [VENDOR, MODEL, [TYPE, MOBILE]], [
-            /(kin\.[onetw]{3})/i                                                // Microsoft Kin
-            ], [[MODEL, /\./g, ' '], [VENDOR, MICROSOFT], [TYPE, MOBILE]], [
-            /droid.+; (cc6666?|et5[16]|mc[239][23]x?|vc8[03]x?)\)/i             // Zebra
-            ], [MODEL, [VENDOR, ZEBRA], [TYPE, TABLET]], [
-            /droid.+; (ec30|ps20|tc[2-8]\d[kx])\)/i
-            ], [MODEL, [VENDOR, ZEBRA], [TYPE, MOBILE]], [
-
-            ///////////////////
-            // CONSOLES
-            ///////////////////
-
-            /(ouya)/i,                                                          // Ouya
-            /(nintendo) ([wids3utch]+)/i                                        // Nintendo
-            ], [VENDOR, MODEL, [TYPE, CONSOLE]], [
-            /droid.+; (shield) bui/i                                            // Nvidia
-            ], [MODEL, [VENDOR, 'Nvidia'], [TYPE, CONSOLE]], [
-            /(playstation [345portablevi]+)/i                                   // Playstation
-            ], [MODEL, [VENDOR, SONY], [TYPE, CONSOLE]], [
-            /\b(xbox(?: one)?(?!; xbox))[\); ]/i                                // Microsoft Xbox
-            ], [MODEL, [VENDOR, MICROSOFT], [TYPE, CONSOLE]], [
-
-            ///////////////////
-            // SMARTTVS
-            ///////////////////
-
-            /smart-tv.+(samsung)/i                                              // Samsung
-            ], [VENDOR, [TYPE, SMARTTV]], [
-            /hbbtv.+maple;(\d+)/i
-            ], [[MODEL, /^/, 'SmartTV'], [VENDOR, SAMSUNG], [TYPE, SMARTTV]], [
-            /(nux; netcast.+smarttv|lg (netcast\.tv-201\d|android tv))/i        // LG SmartTV
-            ], [[VENDOR, LG], [TYPE, SMARTTV]], [
-            /(apple) ?tv/i                                                      // Apple TV
-            ], [VENDOR, [MODEL, APPLE+' TV'], [TYPE, SMARTTV]], [
-            /crkey/i                                                            // Google Chromecast
-            ], [[MODEL, CHROME+'cast'], [VENDOR, GOOGLE], [TYPE, SMARTTV]], [
-            /droid.+aft(\w)( bui|\))/i                                          // Fire TV
-            ], [MODEL, [VENDOR, AMAZON], [TYPE, SMARTTV]], [
-            /\(dtv[\);].+(aquos)/i                                              // Sharp
-            ], [MODEL, [VENDOR, 'Sharp'], [TYPE, SMARTTV]], [
-            /\b(roku)[\dx]*[\)\/]((?:dvp-)?[\d\.]*)/i,                          // Roku
-            /hbbtv\/\d+\.\d+\.\d+ +\([\w ]*; *(\w[^;]*);([^;]*)/i               // HbbTV devices
-            ], [[VENDOR, trim], [MODEL, trim], [TYPE, SMARTTV]], [
-            /\b(android tv|smart[- ]?tv|opera tv|tv; rv:)\b/i                   // SmartTV from Unidentified Vendors
-            ], [[TYPE, SMARTTV]], [
-
-            ///////////////////
-            // WEARABLES
-            ///////////////////
-
-            /((pebble))app/i                                                    // Pebble
-            ], [VENDOR, MODEL, [TYPE, WEARABLE]], [
-            /droid.+; (glass) \d/i                                              // Google Glass
-            ], [MODEL, [VENDOR, GOOGLE], [TYPE, WEARABLE]], [
-            /droid.+; (wt63?0{2,3})\)/i
-            ], [MODEL, [VENDOR, ZEBRA], [TYPE, WEARABLE]], [
-            /(quest( 2)?)/i                                                     // Oculus Quest
-            ], [MODEL, [VENDOR, FACEBOOK], [TYPE, WEARABLE]], [
-
-            ///////////////////
-            // EMBEDDED
-            ///////////////////
-
-            /(tesla)(?: qtcarbrowser|\/[-\w\.]+)/i                              // Tesla
-            ], [VENDOR, [TYPE, EMBEDDED]], [
-
-            ////////////////////
-            // MIXED (GENERIC)
-            ///////////////////
-
-            /droid .+?; ([^;]+?)(?: bui|\) applew).+? mobile safari/i           // Android Phones from Unidentified Vendors
-            ], [MODEL, [TYPE, MOBILE]], [
-            /droid .+?; ([^;]+?)(?: bui|\) applew).+?(?! mobile) safari/i       // Android Tablets from Unidentified Vendors
-            ], [MODEL, [TYPE, TABLET]], [
-            /\b((tablet|tab)[;\/]|focus\/\d(?!.+mobile))/i                      // Unidentifiable Tablet
-            ], [[TYPE, TABLET]], [
-            /(phone|mobile(?:[;\/]| safari)|pda(?=.+windows ce))/i              // Unidentifiable Mobile
-            ], [[TYPE, MOBILE]], [
-            /(android[-\w\. ]{0,9});.+buil/i                                    // Generic Android Device
-            ], [MODEL, [VENDOR, 'Generic']]
-        ],
-
-        engine : [[
-
-            /windows.+ edge\/([\w\.]+)/i                                       // EdgeHTML
-            ], [VERSION, [NAME, EDGE+'HTML']], [
-
-            /webkit\/537\.36.+chrome\/(?!27)([\w\.]+)/i                         // Blink
-            ], [VERSION, [NAME, 'Blink']], [
-
-            /(presto)\/([\w\.]+)/i,                                             // Presto
-            /(webkit|trident|netfront|netsurf|amaya|lynx|w3m|goanna)\/([\w\.]+)/i, // WebKit/Trident/NetFront/NetSurf/Amaya/Lynx/w3m/Goanna
-            /ekioh(flow)\/([\w\.]+)/i,                                          // Flow
-            /(khtml|tasman|links)[\/ ]\(?([\w\.]+)/i,                           // KHTML/Tasman/Links
-            /(icab)[\/ ]([23]\.[\d\.]+)/i                                       // iCab
-            ], [NAME, VERSION], [
-
-            /rv\:([\w\.]{1,9})\b.+(gecko)/i                                     // Gecko
-            ], [VERSION, NAME]
-        ],
-
-        os : [[
-
-            // Windows
-            /microsoft (windows) (vista|xp)/i                                   // Windows (iTunes)
-            ], [NAME, VERSION], [
-            /(windows) nt 6\.2; (arm)/i,                                        // Windows RT
-            /(windows (?:phone(?: os)?|mobile))[\/ ]?([\d\.\w ]*)/i,            // Windows Phone
-            /(windows)[\/ ]?([ntce\d\. ]+\w)(?!.+xbox)/i
-            ], [NAME, [VERSION, strMapper, windowsVersionMap]], [
-            /(win(?=3|9|n)|win 9x )([nt\d\.]+)/i
-            ], [[NAME, 'Windows'], [VERSION, strMapper, windowsVersionMap]], [
-
-            // iOS/macOS
-            /ip[honead]{2,4}\b(?:.*os ([\w]+) like mac|; opera)/i,              // iOS
-            /cfnetwork\/.+darwin/i
-            ], [[VERSION, /_/g, '.'], [NAME, 'iOS']], [
-            /(mac os x) ?([\w\. ]*)/i,
-            /(macintosh|mac_powerpc\b)(?!.+haiku)/i                             // Mac OS
-            ], [[NAME, 'Mac OS'], [VERSION, /_/g, '.']], [
-
-            // Mobile OSes
-            /droid ([\w\.]+)\b.+(android[- ]x86)/i                              // Android-x86
-            ], [VERSION, NAME], [                                               // Android/WebOS/QNX/Bada/RIM/Maemo/MeeGo/Sailfish OS
-            /(android|webos|qnx|bada|rim tablet os|maemo|meego|sailfish)[-\/ ]?([\w\.]*)/i,
-            /(blackberry)\w*\/([\w\.]*)/i,                                      // Blackberry
-            /(tizen|kaios)[\/ ]([\w\.]+)/i,                                     // Tizen/KaiOS
-            /\((series40);/i                                                    // Series 40
-            ], [NAME, VERSION], [
-            /\(bb(10);/i                                                        // BlackBerry 10
-            ], [VERSION, [NAME, BLACKBERRY]], [
-            /(?:symbian ?os|symbos|s60(?=;)|series60)[-\/ ]?([\w\.]*)/i         // Symbian
-            ], [VERSION, [NAME, 'Symbian']], [
-            /mozilla\/[\d\.]+ \((?:mobile|tablet|tv|mobile; [\w ]+); rv:.+ gecko\/([\w\.]+)/i // Firefox OS
-            ], [VERSION, [NAME, FIREFOX+' OS']], [
-            /web0s;.+rt(tv)/i,
-            /\b(?:hp)?wos(?:browser)?\/([\w\.]+)/i                              // WebOS
-            ], [VERSION, [NAME, 'webOS']], [
-
-            // Google Chromecast
-            /crkey\/([\d\.]+)/i                                                 // Google Chromecast
-            ], [VERSION, [NAME, CHROME+'cast']], [
-            /(cros) [\w]+ ([\w\.]+\w)/i                                         // Chromium OS
-            ], [[NAME, 'Chromium OS'], VERSION],[
-
-            // Console
-            /(nintendo|playstation) ([wids345portablevuch]+)/i,                 // Nintendo/Playstation
-            /(xbox); +xbox ([^\);]+)/i,                                         // Microsoft Xbox (360, One, X, S, Series X, Series S)
-
-            // Other
-            /\b(joli|palm)\b ?(?:os)?\/?([\w\.]*)/i,                            // Joli/Palm
-            /(mint)[\/\(\) ]?(\w*)/i,                                           // Mint
-            /(mageia|vectorlinux)[; ]/i,                                        // Mageia/VectorLinux
-            /([kxln]?ubuntu|debian|suse|opensuse|gentoo|arch(?= linux)|slackware|fedora|mandriva|centos|pclinuxos|red ?hat|zenwalk|linpus|raspbian|plan 9|minix|risc os|contiki|deepin|manjaro|elementary os|sabayon|linspire)(?: gnu\/linux)?(?: enterprise)?(?:[- ]linux)?(?:-gnu)?[-\/ ]?(?!chrom|package)([-\w\.]*)/i,
-                                                                                // Ubuntu/Debian/SUSE/Gentoo/Arch/Slackware/Fedora/Mandriva/CentOS/PCLinuxOS/RedHat/Zenwalk/Linpus/Raspbian/Plan9/Minix/RISCOS/Contiki/Deepin/Manjaro/elementary/Sabayon/Linspire
-            /(hurd|linux) ?([\w\.]*)/i,                                         // Hurd/Linux
-            /(gnu) ?([\w\.]*)/i,                                                // GNU
-            /\b([-frentopcghs]{0,5}bsd|dragonfly)[\/ ]?(?!amd|[ix346]{1,2}86)([\w\.]*)/i, // FreeBSD/NetBSD/OpenBSD/PC-BSD/GhostBSD/DragonFly
-            /(haiku) (\w+)/i                                                    // Haiku
-            ], [NAME, VERSION], [
-            /(sunos) ?([\w\.\d]*)/i                                             // Solaris
-            ], [[NAME, 'Solaris'], VERSION], [
-            /((?:open)?solaris)[-\/ ]?([\w\.]*)/i,                              // Solaris
-            /(aix) ((\d)(?=\.|\)| )[\w\.])*/i,                                  // AIX
-            /\b(beos|os\/2|amigaos|morphos|openvms|fuchsia|hp-ux)/i,            // BeOS/OS2/AmigaOS/MorphOS/OpenVMS/Fuchsia/HP-UX
-            /(unix) ?([\w\.]*)/i                                                // UNIX
-            ], [NAME, VERSION]
-        ]
-    };
-
-    /////////////////
-    // Constructor
-    ////////////////
-
-    var UAParser = function (ua, extensions) {
-
-        if (typeof ua === OBJ_TYPE) {
-            extensions = ua;
-            ua = undefined;
-        }
-
-        if (!(this instanceof UAParser)) {
-            return new UAParser(ua, extensions).getResult();
-        }
-
-        var _ua = ua || ((typeof window !== UNDEF_TYPE && window.navigator && window.navigator.userAgent) ? window.navigator.userAgent : EMPTY);
-        var _rgxmap = extensions ? extend(regexes, extensions) : regexes;
-
-        this.getBrowser = function () {
-            var _browser = {};
-            _browser[NAME] = undefined;
-            _browser[VERSION] = undefined;
-            rgxMapper.call(_browser, _ua, _rgxmap.browser);
-            _browser.major = majorize(_browser.version);
-            return _browser;
-        };
-        this.getCPU = function () {
-            var _cpu = {};
-            _cpu[ARCHITECTURE] = undefined;
-            rgxMapper.call(_cpu, _ua, _rgxmap.cpu);
-            return _cpu;
-        };
-        this.getDevice = function () {
-            var _device = {};
-            _device[VENDOR] = undefined;
-            _device[MODEL] = undefined;
-            _device[TYPE] = undefined;
-            rgxMapper.call(_device, _ua, _rgxmap.device);
-            return _device;
-        };
-        this.getEngine = function () {
-            var _engine = {};
-            _engine[NAME] = undefined;
-            _engine[VERSION] = undefined;
-            rgxMapper.call(_engine, _ua, _rgxmap.engine);
-            return _engine;
-        };
-        this.getOS = function () {
-            var _os = {};
-            _os[NAME] = undefined;
-            _os[VERSION] = undefined;
-            rgxMapper.call(_os, _ua, _rgxmap.os);
-            return _os;
-        };
-        this.getResult = function () {
-            return {
-                ua      : this.getUA(),
-                browser : this.getBrowser(),
-                engine  : this.getEngine(),
-                os      : this.getOS(),
-                device  : this.getDevice(),
-                cpu     : this.getCPU()
-            };
-        };
-        this.getUA = function () {
-            return _ua;
-        };
-        this.setUA = function (ua) {
-            _ua = (typeof ua === STR_TYPE && ua.length > UA_MAX_LENGTH) ? trim(ua, UA_MAX_LENGTH) : ua;
-            return this;
-        };
-        this.setUA(_ua);
-        return this;
-    };
-
-    UAParser.VERSION = LIBVERSION;
-    UAParser.BROWSER =  enumerize([NAME, VERSION, MAJOR]);
-    UAParser.CPU = enumerize([ARCHITECTURE]);
-    UAParser.DEVICE = enumerize([MODEL, VENDOR, TYPE, CONSOLE, MOBILE, SMARTTV, TABLET, WEARABLE, EMBEDDED]);
-    UAParser.ENGINE = UAParser.OS = enumerize([NAME, VERSION]);
-
-    ///////////
-    // Export
-    //////////
-
-    // check js environment
-    if (typeof(exports) !== UNDEF_TYPE) {
-        // nodejs env
-        if (typeof module !== UNDEF_TYPE && module.exports) {
-            exports = module.exports = UAParser;
-        }
-        exports.UAParser = UAParser;
-    } else {
-        // requirejs env (optional)
-        if (typeof(define) === FUNC_TYPE && define.amd) {
-            define(function () {
-                return UAParser;
-            });
-        } else if (typeof window !== UNDEF_TYPE) {
-            // browser env
-            window.UAParser = UAParser;
-        }
-    }
-
-    // jQuery/Zepto specific (optional)
-    // Note:
-    //   In AMD env the global scope should be kept clean, but jQuery is an exception.
-    //   jQuery always exports to global scope, unless jQuery.noConflict(true) is used,
-    //   and we should catch that.
-    var $ = typeof window !== UNDEF_TYPE && (window.jQuery || window.Zepto);
-    if ($ && !$.ua) {
-        var parser = new UAParser();
-        $.ua = parser.getResult();
-        $.ua.get = function () {
-            return parser.getUA();
-        };
-        $.ua.set = function (ua) {
-            parser.setUA(ua);
-            var result = parser.getResult();
-            for (var prop in result) {
-                $.ua[prop] = result[prop];
-            }
-        };
-    }
-
-})(typeof window === 'object' ? window : this);
-
-},{}],8:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11033,7 +10080,7 @@ var _stringify = _interopRequireDefault(require("./stringify.js"));
 var _parse = _interopRequireDefault(require("./parse.js"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-},{"./nil.js":10,"./parse.js":11,"./stringify.js":15,"./v1.js":16,"./v3.js":17,"./v4.js":19,"./v5.js":20,"./validate.js":21,"./version.js":22}],9:[function(require,module,exports){
+},{"./nil.js":9,"./parse.js":10,"./stringify.js":14,"./v1.js":15,"./v3.js":16,"./v4.js":18,"./v5.js":19,"./validate.js":20,"./version.js":21}],8:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11257,7 +10304,7 @@ function md5ii(a, b, c, d, x, s, t) {
 
 var _default = md5;
 exports.default = _default;
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11266,7 +10313,7 @@ Object.defineProperty(exports, "__esModule", {
 exports.default = void 0;
 var _default = '00000000-0000-0000-0000-000000000000';
 exports.default = _default;
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11312,7 +10359,7 @@ function parse(uuid) {
 
 var _default = parse;
 exports.default = _default;
-},{"./validate.js":21}],12:[function(require,module,exports){
+},{"./validate.js":20}],11:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11321,7 +10368,7 @@ Object.defineProperty(exports, "__esModule", {
 exports.default = void 0;
 var _default = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
 exports.default = _default;
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11348,7 +10395,7 @@ function rng() {
 
   return getRandomValues(rnds8);
 }
-},{}],14:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11453,7 +10500,7 @@ function sha1(bytes) {
 
 var _default = sha1;
 exports.default = _default;
-},{}],15:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11493,7 +10540,7 @@ function stringify(arr, offset = 0) {
 
 var _default = stringify;
 exports.default = _default;
-},{"./validate.js":21}],16:[function(require,module,exports){
+},{"./validate.js":20}],15:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11601,7 +10648,7 @@ function v1(options, buf, offset) {
 
 var _default = v1;
 exports.default = _default;
-},{"./rng.js":13,"./stringify.js":15}],17:[function(require,module,exports){
+},{"./rng.js":12,"./stringify.js":14}],16:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11618,7 +10665,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 const v3 = (0, _v.default)('v3', 0x30, _md.default);
 var _default = v3;
 exports.default = _default;
-},{"./md5.js":9,"./v35.js":18}],18:[function(require,module,exports){
+},{"./md5.js":8,"./v35.js":17}],17:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11697,7 +10744,7 @@ function _default(name, version, hashfunc) {
   generateUUID.URL = URL;
   return generateUUID;
 }
-},{"./parse.js":11,"./stringify.js":15}],19:[function(require,module,exports){
+},{"./parse.js":10,"./stringify.js":14}],18:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11735,7 +10782,7 @@ function v4(options, buf, offset) {
 
 var _default = v4;
 exports.default = _default;
-},{"./rng.js":13,"./stringify.js":15}],20:[function(require,module,exports){
+},{"./rng.js":12,"./stringify.js":14}],19:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11752,7 +10799,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 const v5 = (0, _v.default)('v5', 0x50, _sha.default);
 var _default = v5;
 exports.default = _default;
-},{"./sha1.js":14,"./v35.js":18}],21:[function(require,module,exports){
+},{"./sha1.js":13,"./v35.js":17}],20:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11770,7 +10817,7 @@ function validate(uuid) {
 
 var _default = validate;
 exports.default = _default;
-},{"./regex.js":12}],22:[function(require,module,exports){
+},{"./regex.js":11}],21:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -11792,7 +10839,7 @@ function version(uuid) {
 
 var _default = version;
 exports.default = _default;
-},{"./validate.js":21}],23:[function(require,module,exports){
+},{"./validate.js":20}],22:[function(require,module,exports){
 /*
 WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based
 on @visionmedia's Emitter from UI Kit.
@@ -11949,7 +10996,7 @@ WildEmitter.mixin = function (constructor) {
 
 WildEmitter.mixin(WildEmitter);
 
-},{}],24:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SimplifiedVidyoCore = exports.TrackType = exports.MediaTrackType = void 0;
@@ -11979,7 +11026,7 @@ class SimplifiedVidyoCore {
 }
 exports.SimplifiedVidyoCore = SimplifiedVidyoCore;
 
-},{"./controllers/StreamController/LocalStreamController":51,"./controllers/StreamController/TrackMetaDataProvider":54,"./models/Participant":90}],25:[function(require,module,exports){
+},{"./controllers/StreamController/LocalStreamController":49,"./controllers/StreamController/TrackMetaDataProvider":52,"./models/Participant":88}],24:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VidyoDiagnostics = exports.VidyoCore = void 0;
@@ -12111,7 +11158,6 @@ class VidyoCore {
             .then(() => { this.Controllers.AdvancedSettingsController.Disable(); })
             .then(() => { this.Controllers.LogController.Disable(); })
             .then(() => { this.Controllers.ModerationController.Disable(); })
-            .then(() => { this.Controllers.AnalyticsController.Disable(); })
             .then(() => {
             this.EventDispatcher.releaseAll();
             if (this._audioContext) {
@@ -12184,7 +11230,7 @@ class VidyoDiagnostics {
 }
 exports.VidyoDiagnostics = VidyoDiagnostics;
 
-},{"../render/RendererFactory":179,"../vidyo_simple_api/EndPoint":188,"../vidyo_simple_api/Permission":192,"../vidyo_simple_api/User":194,"./SimplifiedVidyoCore":24,"./controllers/AdvancedSettingsController":26,"./controllers/AnalyticsController/AnalyticsController":27,"./controllers/BaseController":30,"./controllers/CallStateController":31,"./controllers/ConferenceController/ConferenceController":32,"./controllers/ConnectionController":37,"./controllers/DeviceController":38,"./controllers/LogController/LogController":39,"./controllers/MessageController":41,"./controllers/MicrophoneEnergyLevelController":42,"./controllers/ModerationController":43,"./controllers/ParticipantController":44,"./controllers/PermissionController":45,"./controllers/PersistedSettingsController":46,"./controllers/RendererController":47,"./controllers/ResourceManager/ResourcesManager":48,"./controllers/RoomController":49,"./controllers/StatisticsController":50,"./controllers/StreamController/LocalStreamController":51,"./controllers/StreamController/RemoteStreamController":52,"./controllers/StreamController/TransmittedStreamController":55,"./controllers/UserController":56,"./events/EventDispatcher":63,"./hunter/HunterProvider":78,"./models/RendererTypes":93,"./utils/ObjectUtils":155,"./utils/OperatingSystemInfoProvider":156}],26:[function(require,module,exports){
+},{"../render/RendererFactory":173,"../vidyo_simple_api/EndPoint":182,"../vidyo_simple_api/Permission":186,"../vidyo_simple_api/User":188,"./SimplifiedVidyoCore":23,"./controllers/AdvancedSettingsController":25,"./controllers/AnalyticsController/AnalyticsController":26,"./controllers/BaseController":28,"./controllers/CallStateController":29,"./controllers/ConferenceController/ConferenceController":30,"./controllers/ConnectionController":35,"./controllers/DeviceController":36,"./controllers/LogController/LogController":37,"./controllers/MessageController":39,"./controllers/MicrophoneEnergyLevelController":40,"./controllers/ModerationController":41,"./controllers/ParticipantController":42,"./controllers/PermissionController":43,"./controllers/PersistedSettingsController":44,"./controllers/RendererController":45,"./controllers/ResourceManager/ResourcesManager":46,"./controllers/RoomController":47,"./controllers/StatisticsController":48,"./controllers/StreamController/LocalStreamController":49,"./controllers/StreamController/RemoteStreamController":50,"./controllers/StreamController/TransmittedStreamController":53,"./controllers/UserController":54,"./events/EventDispatcher":61,"./hunter/HunterProvider":76,"./models/RendererTypes":90,"./utils/ObjectUtils":150,"./utils/OperatingSystemInfoProvider":151}],25:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdvancedSettingsController = void 0;
@@ -12223,16 +11269,13 @@ function AdvancedSettingsTemplate(Base) {
             this.EnableDTMF = false;
             this.LoggerURL = undefined;
             this.MaxReconnectAttempts = 3;
-            this.OnGoogleAnalyticsEventSent = null;
+            this.OnAnalyticsEventSent = null;
             this.ReconnectBackoff = 5;
             this.PinnedParticipantDisplayCropped = false;
             this.ShowStatisticsOverlay = false;
             this.StatisticsRefreshInterval = Constants.StatisticsRefreshInterval;
-            this.AudioContentHint = Constants.AudioMediaTrackContentHints.speech;
             this.CameraContentHint = Constants.VideoMediaTrackContentHints.motion;
             this.WindowShareContentHint = Constants.VideoMediaTrackContentHints.detail;
-            this.GeolocationServiceURL = Constants.GeoLocationServiceURL;
-            this.EnableGeolocation = true;
         }
     };
 }
@@ -12261,17 +11304,14 @@ const eventsByPropertyName = {
     ParticipantLimit: AdvancedSettingsEvents.Events.ParticipantLimitChanged,
     DisableMobileParticipantLimitRestrictions: AdvancedSettingsEvents.Events.DisableMobileParticipantLimitRestrictionsChanged,
     DisableTabletParticipantLimitRestrictions: AdvancedSettingsEvents.Events.DisableTabletParticipantLimitRestrictionsChanged,
-    OnGoogleAnalyticsEventSent: AdvancedSettingsEvents.Events.OnGoogleAnalyticsEventSentChanged,
+    OnAnalyticsEventSent: AdvancedSettingsEvents.Events.OnAnalyticsEventSentChanged,
     ReconnectBackoff: AdvancedSettingsEvents.Events.ReconnectBackoffChanged,
     PinnedParticipantDisplayCropped: AdvancedSettingsEvents.Events.PinnedParticipantDisplayCroppedChanged,
     ShowLogCategory: AdvancedSettingsEvents.Events.LogCategoryChanged,
     ShowStatisticsOverlay: AdvancedSettingsEvents.Events.ShowStatisticsOverlayChanged,
     StatisticsRefreshInterval: AdvancedSettingsEvents.Events.StatisticsRefreshIntervalChanged,
-    AudioContentHint: AdvancedSettingsEvents.Events.AudioContentHintChanged,
     CameraContentHint: AdvancedSettingsEvents.Events.CameraContentHintChanged,
-    WindowShareContentHint: AdvancedSettingsEvents.Events.WindowShareContentHintChanged,
-    GeoLocationServiceURL: AdvancedSettingsEvents.Events.GeoLocationServiceURLChanged,
-    EnableGeolocation: AdvancedSettingsEvents.Events.EnableGeolocationChanged
+    WindowShareContentHint: AdvancedSettingsEvents.Events.WindowShareContentHintChanged
 };
 const validatorFunctionsByPropertyName = {
     EnableFixedSimulcastRunnels: (value) => {
@@ -12297,7 +11337,7 @@ const validatorFunctionsByPropertyName = {
         const maximum = 4;
         return (value >= minimum) && (value <= maximum);
     },
-    OnGoogleAnalyticsEventSent: (value) => {
+    OnAnalyticsEventSent: (value) => {
         return value === null || typeof value === 'function';
     },
     ReconnectBackoff: (value) => {
@@ -12309,7 +11349,6 @@ const validatorFunctionsByPropertyName = {
         const minimum = 1000;
         return value >= minimum;
     },
-    AudioContentHint: (value) => Object.values(Constants.AudioMediaTrackContentHints).includes(value),
     CameraContentHint: (value) => Object.values(Constants.VideoMediaTrackContentHints).includes(value),
     WindowShareContentHint: (value) => Object.values(Constants.VideoMediaTrackContentHints).includes(value)
 };
@@ -12317,9 +11356,9 @@ class AdvancedSettingsController extends AdvancedSettingsTemplate(BaseController
     constructor() {
         super(...arguments);
         this.Silent = false;
-        this._onGoogleAnalyticsEventSent = (payload) => {
-            if (typeof this.OnGoogleAnalyticsEventSent === 'function') {
-                this.OnGoogleAnalyticsEventSent(payload);
+        this._onAnalyticsEventSent = (payload) => {
+            if (typeof this.OnAnalyticsEventSent === 'function') {
+                this.OnAnalyticsEventSent(payload);
             }
         };
     }
@@ -12412,7 +11451,7 @@ class AdvancedSettingsController extends AdvancedSettingsTemplate(BaseController
     }
     _registerEventListeners() {
         this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.AdvancedSettingsListeners);
-        this._vidyoCore.EventDispatcher.on(AnalyticsEvents.Events.GoogleAnalyticsEventSent, EventDispatcher_1.AdvancedSettingsListeners, this._onGoogleAnalyticsEventSent);
+        this._vidyoCore.EventDispatcher.on(AnalyticsEvents.Events.AnalyticsEventSent, EventDispatcher_1.AdvancedSettingsListeners, this._onAnalyticsEventSent);
         this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.DisableMobileParticipantLimitRestrictionsChanged, EventDispatcher_1.AdvancedSettingsListeners, (val) => {
             if (!val) {
                 this.ParticipantLimit = Constants.MobileParticipantLimit;
@@ -12427,226 +11466,255 @@ class AdvancedSettingsController extends AdvancedSettingsTemplate(BaseController
 }
 exports.AdvancedSettingsController = AdvancedSettingsController;
 
-},{"../events/AdvancedSettingsEvents":57,"../events/AnalyticsEvents":58,"../events/EventDispatcher":63,"../events/LogEvents":64,"../utils/AutoPropertyHelper":136,"../utils/Constants":138,"../utils/OperatingSystemInfoProvider":156,"./BaseController":30}],27:[function(require,module,exports){
+},{"../events/AdvancedSettingsEvents":55,"../events/AnalyticsEvents":56,"../events/EventDispatcher":61,"../events/LogEvents":62,"../utils/AutoPropertyHelper":131,"../utils/Constants":133,"../utils/OperatingSystemInfoProvider":151,"./BaseController":28}],26:[function(require,module,exports){
 "use strict";
+var _a, _b, _c;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AnalyticsController = void 0;
-const Constants = require("../../utils/Constants");
-const UUID = require("uuid");
+exports.AnalyticsController = exports.AnalyticServiceType = exports.AnalyticsEventTable = exports.EventAction = exports.EventCategory = void 0;
+const Constants_1 = require("../../utils/Constants");
 const LocalStorageProvider_1 = require("../../utils/LocalStorageProvider");
-const GoogleAnalytics_1 = require("./services/GoogleAnalytics");
-const VidyoInsights_1 = require("./services/VidyoInsights");
 const BaseController_1 = require("../BaseController");
+const GoogleAnalytics_1 = require("./GoogleAnalytics");
+const UUID = require("uuid");
+var EventCategory;
+(function (EventCategory) {
+    EventCategory["General"] = "General";
+    EventCategory["Renderer"] = "Renderer";
+    EventCategory["Conference"] = "Conference";
+})(EventCategory = exports.EventCategory || (exports.EventCategory = {}));
+var EventAction;
+(function (EventAction) {
+    EventAction["DeviceInfo"] = "DeviceInfo";
+    EventAction["EnableAudioOnlyMode"] = "EnableAudioOnlyMode";
+    EventAction["DisableAudioOnlyMode"] = "DisableAudioOnlyMode";
+    EventAction["EnableAutoReconnect"] = "EnableAutoReconnect";
+    EventAction["DisableAutoReconnect"] = "DisableAutoReconnect";
+    EventAction["EnableScreenShareSimulcast"] = "EnableScreenShareSimulcast";
+    EventAction["DisableScreenShareSimulcast"] = "DisableScreenShareSimulcast";
+    EventAction["EnableVideoSimulcast"] = "EnableVideoSimulcast";
+    EventAction["DisableVideoSimulcast"] = "DisableVideoSimulcast";
+    EventAction["EnableFixedSimulcastRunnels"] = "EnableFixedSimulcastRunnels";
+    EventAction["DisableFixedSimulcastRunnels"] = "DisableFixedSimulcastRunnels";
+    EventAction["CreateView"] = "CreateView";
+    EventAction["EnableCompositorFixedParticipants"] = "EnableCompositorFixedParticipants";
+    EventAction["DisableCompositorFixedParticipants"] = "DisableCompositorFixedParticipants";
+    EventAction["ParticipantLimit"] = "ParticipantLimit";
+    EventAction["Join"] = "Join";
+    EventAction["UserType"] = "UserType";
+    EventAction["Reconnect"] = "Reconnect";
+    EventAction["Failed"] = "Failed";
+    EventAction["End"] = "End";
+})(EventAction = exports.EventAction || (exports.EventAction = {}));
+class AnalyticsEventTable {
+    constructor() {
+        this[_a] = {
+            [EventAction.DeviceInfo]: true,
+            [EventAction.EnableAudioOnlyMode]: true,
+            [EventAction.DisableAudioOnlyMode]: true,
+            [EventAction.EnableAutoReconnect]: true,
+            [EventAction.DisableAutoReconnect]: true,
+            [EventAction.EnableScreenShareSimulcast]: true,
+            [EventAction.DisableScreenShareSimulcast]: true,
+            [EventAction.EnableVideoSimulcast]: true,
+            [EventAction.DisableVideoSimulcast]: true,
+            [EventAction.EnableFixedSimulcastRunnels]: true,
+            [EventAction.DisableFixedSimulcastRunnels]: true
+        };
+        this[_b] = {
+            [EventAction.CreateView]: true,
+            [EventAction.EnableCompositorFixedParticipants]: true,
+            [EventAction.DisableCompositorFixedParticipants]: true,
+            [EventAction.ParticipantLimit]: true
+        };
+        this[_c] = {
+            [EventAction.Join]: true,
+            [EventAction.UserType]: true,
+            [EventAction.Reconnect]: true,
+            [EventAction.Failed]: true,
+            [EventAction.End]: true
+        };
+    }
+    fromJson(json) {
+        try {
+            const settings = JSON.parse(json);
+            for (let eventCategory in settings) {
+                for (let eventAction in settings[eventCategory]) {
+                    if (this.hasOwnProperty(eventCategory) && this[eventCategory].hasOwnProperty(eventAction)) {
+                        this[eventCategory][eventAction] = settings[eventCategory][eventAction];
+                    }
+                }
+            }
+        }
+        catch (err) {
+            console.error(err);
+        }
+    }
+    toJson() {
+        return JSON.stringify(this);
+    }
+}
+exports.AnalyticsEventTable = AnalyticsEventTable;
+_a = EventCategory.General, _b = EventCategory.Renderer, _c = EventCategory.Conference;
+var AnalyticServiceType;
+(function (AnalyticServiceType) {
+    AnalyticServiceType["VIDYO_COREANALYTICSSERVICETYPE_Google"] = "VIDYO_COREANALYTICSSERVICETYPE_Google";
+})(AnalyticServiceType = exports.AnalyticServiceType || (exports.AnalyticServiceType = {}));
 class AnalyticsController extends BaseController_1.BaseController {
     constructor() {
         super(...arguments);
         this._googleAnalytics = new GoogleAnalytics_1.default(this._vidyoCore);
-        this._vidyoInsights = new VidyoInsights_1.default(this._vidyoCore);
-    }
-    get GoogleAnalyticsTrackingID() {
-        return this._googleAnalytics.TrackingID;
-    }
-    get IsGoogleAnalyticsStarted() {
-        return this._googleAnalytics.IsStarted;
-    }
-    get IsVidyoInsightsStarted() {
-        return this._vidyoInsights.IsStarted;
-    }
-    get VidyoInsightsServerUrl() {
-        return this._vidyoInsights.ServerUrl;
     }
     Initialize() {
-        return Promise.all([
-            this._googleAnalytics.Initialize(),
-            this._vidyoInsights.Initialize()
-        ]).then(async () => {
-            await this._startGoogleAnalytics();
+        const serviceType = AnalyticServiceType.VIDYO_COREANALYTICSSERVICETYPE_Google;
+        const serverUrl = Constants_1.GoogleAnalyticsBaseURL;
+        const trackingID = Constants_1.GoogleAnalyticsTrackingID;
+        return this.Start(serviceType, serverUrl, trackingID).then(() => {
             return super.Initialize();
         });
     }
     Disable() {
-        return Promise.all([
-            this._googleAnalytics.Disable(),
-            this._vidyoInsights.Disable()
-        ]).then(() => {
+        return this.Stop().then(() => {
             return super.Disable();
         });
     }
-    ControlGoogleAnalyticsEventAction(eventCategory, eventAction, enable) {
+    ControlEventAction(eventCategory, eventAction, enable) {
         return this._googleAnalytics.ControlEventAction(eventCategory, eventAction, enable);
     }
-    GetGoogleAnalyticsEventTable() {
-        return this._googleAnalytics.GetEventTable();
+    GetAnalyticsEventTable() {
+        return this._googleAnalytics.GetAnalyticsEventTable();
     }
-    NotifyVidyoInsightsApplicationEvent(eventName, parameters) {
-        return this._vidyoInsights.PushAppEvent(eventName, parameters);
+    Start(serviceType, serverUrl, trackingID) {
+        if (serviceType === AnalyticServiceType.VIDYO_COREANALYTICSSERVICETYPE_Google) {
+            const gaClientIdStored = LocalStorageProvider_1.LocalStorageProvider.Get(Constants_1.GoogleAnalyticsLocalStorageCIDKey);
+            const gaClientId = gaClientIdStored || UUID.v4();
+            return this._googleAnalytics.Start(serverUrl, trackingID, gaClientId).then((result) => {
+                if (result && !gaClientIdStored) {
+                    LocalStorageProvider_1.LocalStorageProvider.Set(Constants_1.GoogleAnalyticsLocalStorageCIDKey, gaClientId);
+                }
+                return result;
+            });
+        }
+        return Promise.resolve(false);
     }
-    StartGoogleAnalytics(trackingID) {
-        return this._startGoogleAnalytics(Constants.GoogleAnalyticsServerURL, trackingID);
-    }
-    StartVidyoInsights(serverUrl, trackingID, sendInterval) {
-        return this._startVidyoInsights(serverUrl, trackingID, sendInterval);
-    }
-    StopGoogleAnalytics() {
+    Stop() {
         return this._googleAnalytics.Stop();
-    }
-    StopVidyoInsights() {
-        return this._vidyoInsights.Stop();
-    }
-    _startGoogleAnalytics(serverUrl, trackingID) {
-        const gaServerUrl = serverUrl ?? Constants.GoogleAnalyticsServerURL;
-        const gaTrackingID = trackingID ?? Constants.GoogleAnalyticsTrackingID;
-        const gaClientIdStored = LocalStorageProvider_1.LocalStorageProvider.Get(Constants.GoogleAnalyticsLocalStorageCIDKey);
-        const gaClientId = gaClientIdStored || UUID.v4();
-        return this._googleAnalytics.Start(gaServerUrl, gaTrackingID, gaClientId).then((result) => {
-            if (result && !gaClientIdStored) {
-                LocalStorageProvider_1.LocalStorageProvider.Set(Constants.GoogleAnalyticsLocalStorageCIDKey, gaClientId);
-            }
-            return result;
-        });
-    }
-    _startVidyoInsights(serverUrl, trackingID, sendInterval) {
-        const sendStatsInterval = sendInterval ?? Constants.SendClientStatisticsInterval;
-        return this._vidyoInsights.Start(serverUrl, trackingID, sendStatsInterval);
     }
 }
 exports.AnalyticsController = AnalyticsController;
 
-},{"../../utils/Constants":138,"../../utils/LocalStorageProvider":148,"../BaseController":30,"./services/GoogleAnalytics":28,"./services/VidyoInsights":29,"uuid":8}],28:[function(require,module,exports){
+},{"../../utils/Constants":133,"../../utils/LocalStorageProvider":143,"../BaseController":28,"./GoogleAnalytics":27,"uuid":7}],27:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const AdvancedSettingsEvents = require("../../../events/AdvancedSettingsEvents");
-const AnalyticsEvents = require("../../../events/AnalyticsEvents");
-const ConferenceEvents = require("../../../events/ConferenceEvents");
-const ConnectionEvents = require("../../../events/ConnectionEvents");
-const EventDispatcher_1 = require("../../../events/EventDispatcher");
-const GoogleAnalytics_1 = require("../../../utils/GoogleAnalytics");
-const LocalStorageProvider_1 = require("../../../utils/LocalStorageProvider");
-const OperatingSystemInfoProvider_1 = require("../../../utils/OperatingSystemInfoProvider");
-const Constants_1 = require("../../../utils/Constants");
-const GoogleAnalytics_2 = require("../../../models/analytics/GoogleAnalytics");
+const AdvancedSettingsEvents = require("../../events/AdvancedSettingsEvents");
+const AnalyticsEvents = require("../../events/AnalyticsEvents");
+const ConferenceEvents = require("../../events/ConferenceEvents");
+const ConnectionEvents = require("../../events/ConnectionEvents");
+const EventDispatcher_1 = require("../../events/EventDispatcher");
+const GoogleAnalytics_1 = require("../../utils/GoogleAnalytics");
+const LocalStorageProvider_1 = require("../../utils/LocalStorageProvider");
+const Constants_1 = require("../../utils/Constants");
+const OperatingSystemInfoProvider_1 = require("../../utils/OperatingSystemInfoProvider");
+const AnalyticsController_1 = require("./AnalyticsController");
 class GoogleAnalytics {
     constructor(_vidyoCore) {
         this._vidyoCore = _vidyoCore;
-        this._eventTable = new GoogleAnalytics_2.EventTable();
+        this._eventTable = new AnalyticsController_1.AnalyticsEventTable();
         this._enableTrackingEvent = false;
-        this._isStarted = false;
-        this._serverUrl = null;
-        this._trackingID = null;
-        this._clientId = null;
         this._onAnalyticsEventSentChanged = (callback) => {
             this._enableTrackingEvent = typeof callback === 'function';
         };
         this._onEnableAudioOnlyModeChanged = (isEnabled) => {
             if (isEnabled) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.EnableAudioOnlyMode);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.EnableAudioOnlyMode);
             }
             else {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.DisableAudioOnlyMode);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.DisableAudioOnlyMode);
             }
         };
         this._onEnableAutoReconnectChanged = (isEnabled) => {
             if (isEnabled) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.EnableAutoReconnect);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.EnableAutoReconnect);
             }
             else {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.DisableAutoReconnect);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.DisableAutoReconnect);
             }
         };
         this._onEnableScreenShareSimulcastChanged = (isEnabled) => {
             if (isEnabled) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.EnableScreenShareSimulcast);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.EnableScreenShareSimulcast);
             }
             else {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.DisableScreenShareSimulcast);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.DisableScreenShareSimulcast);
             }
         };
         this._onEnableVideoSimulcastChanged = (isEnabled) => {
             if (isEnabled) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.EnableVideoSimulcast);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.EnableVideoSimulcast);
             }
             else {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.DisableVideoSimulcast);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.DisableVideoSimulcast);
             }
         };
         this._onEnableFixedSimulcastRunnelsChanged = (isEnabled) => {
             if (isEnabled) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.EnableFixedSimulcastRunnels);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.EnableFixedSimulcastRunnels);
             }
             else {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.DisableFixedSimulcastRunnels);
+                this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.DisableFixedSimulcastRunnels);
             }
         };
         this._onCreateView = () => {
             const renderMode = this._vidyoCore.Controllers.RendererController.RenderMode;
             const participantLimit = this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit;
             const enableFixedParticipants = this._vidyoCore.Controllers.AdvancedSettingsController.EnableCompositorFixedParticipants;
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Renderer, GoogleAnalytics_2.EventAction.CreateView, renderMode);
+            this._sendEvent(AnalyticsController_1.EventCategory.Renderer, AnalyticsController_1.EventAction.CreateView, renderMode);
             this._onEnableCompositorFixedParticipantsChanged(enableFixedParticipants);
             this._onParticipantLimitChanged(participantLimit);
         };
         this._onEnableCompositorFixedParticipantsChanged = (isEnabled) => {
             if (isEnabled) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.Renderer, GoogleAnalytics_2.EventAction.EnableCompositorFixedParticipants);
+                this._sendEvent(AnalyticsController_1.EventCategory.Renderer, AnalyticsController_1.EventAction.EnableCompositorFixedParticipants);
             }
             else {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.Renderer, GoogleAnalytics_2.EventAction.DisableCompositorFixedParticipants);
+                this._sendEvent(AnalyticsController_1.EventCategory.Renderer, AnalyticsController_1.EventAction.DisableCompositorFixedParticipants);
             }
         };
         this._onParticipantLimitChanged = (participantLimit) => {
             const eventLabel = `${participantLimit}`;
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Renderer, GoogleAnalytics_2.EventAction.ParticipantLimit, eventLabel);
+            this._sendEvent(AnalyticsController_1.EventCategory.Renderer, AnalyticsController_1.EventAction.ParticipantLimit, eventLabel);
         };
         this._onConferenceJoined = () => {
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Conference, GoogleAnalytics_2.EventAction.Join);
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Conference, GoogleAnalytics_2.EventAction.UserType, 'Guest');
+            this._sendEvent(AnalyticsController_1.EventCategory.Conference, AnalyticsController_1.EventAction.Join);
+            this._sendEvent(AnalyticsController_1.EventCategory.Conference, AnalyticsController_1.EventAction.UserType, 'Guest');
         };
         this._onReconnecting = () => {
             const eventLabel = 'Reconnect requests';
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Conference, GoogleAnalytics_2.EventAction.Reconnect, eventLabel);
+            this._sendEvent(AnalyticsController_1.EventCategory.Conference, AnalyticsController_1.EventAction.Reconnect, eventLabel);
         };
         this._onConferenceFailed = (payload) => {
             const eventLabel = payload.msg || 'Unknown error';
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Conference, GoogleAnalytics_2.EventAction.Failed, eventLabel);
-        };
-        this._onEndpointDetailsChanged = (endpointDetails) => {
-            if (endpointDetails.applicationName) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.SetApplicationName, endpointDetails.applicationName);
-            }
-            if (endpointDetails.applicationVersion) {
-                this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.SetApplicationVersion, endpointDetails.applicationVersion);
-            }
+            this._sendEvent(AnalyticsController_1.EventCategory.Conference, AnalyticsController_1.EventAction.Failed, eventLabel);
         };
         this._onDisconnected = (payload) => {
             const eventLabel = payload.msg || 'Unknown error';
-            this._sendEvent(GoogleAnalytics_2.EventCategory.Conference, GoogleAnalytics_2.EventAction.End, eventLabel);
+            this._sendEvent(AnalyticsController_1.EventCategory.Conference, AnalyticsController_1.EventAction.End, eventLabel);
         };
         if (LocalStorageProvider_1.LocalStorageProvider.Get(Constants_1.GoogleAnalyticsEventTableKey)) {
             this._eventTable.fromJson(LocalStorageProvider_1.LocalStorageProvider.Get(Constants_1.GoogleAnalyticsEventTableKey));
         }
     }
-    get IsStarted() {
-        return this._isStarted;
-    }
-    get TrackingID() {
-        return this._trackingID;
-    }
-    Initialize() {
-        return Promise.resolve();
-    }
-    Disable() {
-        return this.Stop();
-    }
-    Start(serverUrl, trackingID, clientId) {
+    Start(serverUrl = Constants_1.GoogleAnalyticsBaseURL, trackingID = Constants_1.GoogleAnalyticsTrackingID, clientId) {
         if (GoogleAnalytics_1.GoogleAnalyticsProvider.isDisabled) {
             this._vidyoCore.Controllers.LogController.LogDebug(() => 'Google Analytics disabled');
             return Promise.resolve(false);
         }
         this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.GoogleAnalyticsListeners);
-        this._serverUrl = serverUrl;
         this._trackingID = trackingID;
         this._clientId = clientId;
-        this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.OnGoogleAnalyticsEventSentChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onAnalyticsEventSentChanged);
+        if (serverUrl) {
+            GoogleAnalytics_1.GoogleAnalyticsProvider.baseURL = serverUrl;
+        }
+        this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.OnAnalyticsEventSentChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onAnalyticsEventSentChanged);
         this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.EnableAudioOnlyModeChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onEnableAudioOnlyModeChanged);
         this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.EnableAutoReconnectChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onEnableAutoReconnectChanged);
         this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.EnableScreenShareSimulcastChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onEnableScreenShareSimulcastChanged);
@@ -12657,21 +11725,15 @@ class GoogleAnalytics {
         this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.ParticipantLimitChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onParticipantLimitChanged);
         this._vidyoCore.EventDispatcher.on(ConferenceEvents.Events.ConferenceJoined, EventDispatcher_1.GoogleAnalyticsListeners, this._onConferenceJoined);
         this._vidyoCore.EventDispatcher.on(ConnectionEvents.Events.ConferenceFailed, EventDispatcher_1.GoogleAnalyticsListeners, this._onConferenceFailed);
-        this._vidyoCore.EventDispatcher.on(ConnectionEvents.Events.EndpointDetailsChanged, EventDispatcher_1.GoogleAnalyticsListeners, this._onEndpointDetailsChanged);
         this._vidyoCore.EventDispatcher.on(ConnectionEvents.Events.Reconnecting, EventDispatcher_1.GoogleAnalyticsListeners, this._onReconnecting);
         this._vidyoCore.EventDispatcher.on(ConnectionEvents.Events.Disconnected, EventDispatcher_1.GoogleAnalyticsListeners, this._onDisconnected);
         this._start();
-        this._isStarted = true;
         this._vidyoCore.Controllers.LogController.LogDebug(() => 'Google Analytics started');
         return Promise.resolve(true);
     }
     Stop() {
         this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.GoogleAnalyticsListeners);
         this._vidyoCore.Controllers.LogController.LogDebug(() => 'Google Analytics stoped');
-        this._isStarted = false;
-        this._serverUrl = null;
-        this._trackingID = null;
-        this._clientId = null;
         return Promise.resolve(true);
     }
     ControlEventAction(eventCategory, eventAction, enable) {
@@ -12682,13 +11744,14 @@ class GoogleAnalytics {
         }
         return Promise.resolve(false);
     }
-    GetEventTable() {
+    GetAnalyticsEventTable() {
         return this._eventTable;
     }
     _sendEvent(eventCategory, eventAction, eventLabel) {
         const emitTrackingEvent = (status) => {
             if (this._enableTrackingEvent) {
-                this._vidyoCore.EventDispatcher.emit(AnalyticsEvents.Events.GoogleAnalyticsEventSent, {
+                this._vidyoCore.EventDispatcher.emit(AnalyticsEvents.Events.AnalyticsEventSent, {
+                    serviceType: AnalyticsController_1.AnalyticServiceType.VIDYO_COREANALYTICSSERVICETYPE_Google,
                     category: eventCategory,
                     action: eventAction,
                     label: eventLabel,
@@ -12700,7 +11763,6 @@ class GoogleAnalytics {
             const eventString = [eventCategory, eventAction, eventLabel].filter((text) => text).join('::');
             this._vidyoCore.Controllers.LogController.LogDebug(() => `Sending event ${eventString}`);
             return GoogleAnalytics_1.GoogleAnalyticsProvider.SendEvent({
-                serverURL: this._serverUrl,
                 trackingID: this._trackingID,
                 clientId: this._clientId,
                 eventCategory,
@@ -12721,7 +11783,7 @@ class GoogleAnalytics {
         const browserVersion = OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.BrowserVersion;
         const deviceInfo = `${osInfo.OSName} ${osInfo.OSVersion}, ${browserName} ${browserVersion}`;
         const advancedSettings = this._vidyoCore.Controllers.AdvancedSettingsController;
-        this._sendEvent(GoogleAnalytics_2.EventCategory.General, GoogleAnalytics_2.EventAction.DeviceInfo, deviceInfo);
+        this._sendEvent(AnalyticsController_1.EventCategory.General, AnalyticsController_1.EventAction.DeviceInfo, deviceInfo);
         this._onEnableAudioOnlyModeChanged(advancedSettings.EnableAudioOnlyMode);
         this._onEnableAutoReconnectChanged(advancedSettings.EnableAutoReconnect);
         this._onEnableFixedSimulcastRunnelsChanged(advancedSettings.EnableFixedSimulcastRunnels);
@@ -12731,197 +11793,7 @@ class GoogleAnalytics {
 }
 exports.default = GoogleAnalytics;
 
-},{"../../../events/AdvancedSettingsEvents":57,"../../../events/AnalyticsEvents":58,"../../../events/ConferenceEvents":60,"../../../events/ConnectionEvents":61,"../../../events/EventDispatcher":63,"../../../models/analytics/GoogleAnalytics":99,"../../../utils/Constants":138,"../../../utils/GoogleAnalytics":145,"../../../utils/LocalStorageProvider":148,"../../../utils/OperatingSystemInfoProvider":156}],29:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const AnalyticsEvents = require("../../../events/AnalyticsEvents");
-const ConferenceEvents = require("../../../events/ConferenceEvents");
-const ConnectionEvents = require("../../../events/ConnectionEvents");
-const ModerationEvents = require("../../../events/ModerationEvents");
-const ResourcesManagerEvents = require("../../../events/ResourcesManagerEvents");
-const StreamEvents = require("../../../events/StreamEvents");
-const EventDispatcher_1 = require("../../../events/EventDispatcher");
-const VidyoInsightsProvider_1 = require("../../../utils/VidyoInsightsProvider");
-const Stats_1 = require("../../../../vidyo_simple_api/stats/Stats");
-const TimingProvider_1 = require("../../../utils/TimingProvider");
-const VidyoInsights_1 = require("../../../models/analytics/VidyoInsights");
-class VidyoInsights {
-    constructor(_vidyoCore) {
-        this._vidyoCore = _vidyoCore;
-        this._appEvents = [];
-        this._clientEvents = [];
-        this._inCall = false;
-        this._provider = null;
-        this._sendInterval = null;
-        this._sendIntervalHandle = null;
-        this._onConferenceJoined = () => {
-            this._inCall = true;
-            this._startSending();
-        };
-        this._onDisconnected = () => {
-            this._inCall = false;
-            this._stopSending();
-        };
-        this._onDeviceChanged = (payload) => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.DeviceChanged, [
-                payload.deviceType,
-                payload.oldName ?? 'None',
-                payload.newName ?? 'None',
-            ]);
-        };
-        this._onConnected = (payload) => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.MediaRouteAcquired, [
-                payload.conferenceId
-            ]);
-        };
-        this._onEventServerConnected = (serverUrl) => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.EventServerConnected, [
-                serverUrl.replace(/.+:\/\//, '')
-            ]);
-        };
-        this._onEventServerError = (payload) => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.EventServerConnectionFailed, [
-                `serverUrl="${payload.serverUrl.replace(/.+:\/\//, '')}"`,
-                `reason="${typeof payload.error === 'string' ? payload.error : payload.error?.message}"`
-            ]);
-        };
-        this._onJoinConferenceRequest = (payload) => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.JoinConferenceRequest, [
-                payload.conferenceId
-            ]);
-        };
-        this._onMaxRemoteSourcesChanged = (payload) => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.MaxRemoteSourcesChanged, [
-                payload.maxRemoteSourcesObj.toString()
-            ]);
-        };
-        this._onMediaEnabled = () => {
-            this._pushClientEvent(VidyoInsights_1.ClientEvents.MediaEnabled, [
-                this._getConferenceId()
-            ]);
-        };
-    }
-    get IsStarted() {
-        return !!this._provider;
-    }
-    get ServerUrl() {
-        return this._provider?.Url ?? null;
-    }
-    Initialize() {
-        this._vidyoCore.EventDispatcher.on(ConferenceEvents.Events.ConferenceJoined, this._onConferenceJoined);
-        this._vidyoCore.EventDispatcher.on(ConnectionEvents.Events.Disconnecting, this._onDisconnected);
-        return Promise.resolve();
-    }
-    Disable() {
-        this._vidyoCore.EventDispatcher.off(ConferenceEvents.Events.ConferenceJoined, this._onConferenceJoined);
-        this._vidyoCore.EventDispatcher.off(ConnectionEvents.Events.Disconnecting, this._onDisconnected);
-        return this.Stop();
-    }
-    Start(serverUrl, trackingID, sendInterval) {
-        this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.VidyoInsightsListeners);
-        this._provider = new VidyoInsightsProvider_1.VidyoInsightsProvider(serverUrl, trackingID);
-        this._sendInterval = sendInterval;
-        this._vidyoCore.EventDispatcher.on(AnalyticsEvents.ClientEvents.DeviceChanged, EventDispatcher_1.VidyoInsightsListeners, this._onDeviceChanged);
-        this._vidyoCore.EventDispatcher.on(AnalyticsEvents.ClientEvents.JoinConferenceRequest, EventDispatcher_1.VidyoInsightsListeners, this._onJoinConferenceRequest);
-        this._vidyoCore.EventDispatcher.on(ConnectionEvents.Events.Connected, EventDispatcher_1.VidyoInsightsListeners, this._onConnected);
-        this._vidyoCore.EventDispatcher.on(ModerationEvents.Events.EventServerConnected, EventDispatcher_1.VidyoInsightsListeners, this._onEventServerConnected);
-        this._vidyoCore.EventDispatcher.on(ModerationEvents.Events.EventServerError, EventDispatcher_1.VidyoInsightsListeners, this._onEventServerError);
-        this._vidyoCore.EventDispatcher.on(ResourcesManagerEvents.Events.MaxRemoteSourcesChanged, EventDispatcher_1.VidyoInsightsListeners, this._onMaxRemoteSourcesChanged);
-        this._vidyoCore.EventDispatcher.on(StreamEvents.Events.MediaEnabled, EventDispatcher_1.VidyoInsightsListeners, this._onMediaEnabled);
-        if (this._inCall) {
-            this._startSending();
-        }
-        this._vidyoCore.Controllers.LogController.LogDebug(() => 'VidyoInsights started');
-        return Promise.resolve(true);
-    }
-    Stop() {
-        this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.VidyoInsightsListeners);
-        this._vidyoCore.Controllers.LogController.LogDebug(() => 'VidyoInsights stoped');
-        this._stopSending();
-        this._clearEvents();
-        this._provider = null;
-        return Promise.resolve(true);
-    }
-    PushAppEvent(eventName, parameters) {
-        if (!this._provider) {
-            this._vidyoCore.Controllers.LogController.LogInfo('VidyoInsights is not started');
-            return Promise.resolve(false);
-        }
-        this._vidyoCore.Controllers.LogController.LogDebug(() => `Push application event: "${eventName}" params: ${parameters}`);
-        this._pushAppEvent(eventName, parameters);
-        return Promise.resolve(true);
-    }
-    _clearEvents() {
-        this._appEvents.length = 0;
-        this._clientEvents.length = 0;
-    }
-    _getConferenceId() {
-        const room = this._vidyoCore.Controllers.RoomController.CoreRoom;
-        if (room.RoomId) {
-            return room.RoomId.toString();
-        }
-        return room.Jid;
-    }
-    _pushAppEvent(eventName, parameters) {
-        const event = new VidyoInsights_1.VidyoInsightsEvent(eventName, parameters);
-        this._appEvents.push(event);
-    }
-    _pushClientEvent(eventName, parameters) {
-        const event = new VidyoInsights_1.VidyoInsightsEvent(eventName, parameters);
-        this._clientEvents.push(event);
-    }
-    _startSending() {
-        this._stopSending();
-        if (this._provider) {
-            this._vidyoCore.Controllers.LogController.LogInfo(() => `Start sending to VidyoInsights with interval ${this._sendInterval}ms`);
-            this._sendIntervalHandle = TimingProvider_1.TimingProvider
-                .Interval(this._sendInterval, () => this._send(), true);
-        }
-    }
-    _stopSending() {
-        if (this._sendIntervalHandle) {
-            if (!!this._appEvents.length || !!this._clientEvents.length) {
-                this._send();
-            }
-            TimingProvider_1.TimingProvider.ClearInterval(this._sendIntervalHandle);
-            this._vidyoCore.Controllers.LogController.LogInfo(() => 'Stop sending to VidyoInsights');
-            this._sendIntervalHandle = null;
-        }
-    }
-    _send() {
-        if (this._provider) {
-            const endpointStatistics = this._vidyoCore.Controllers.StatisticsController.GetEndpointStatistics();
-            const data = {
-                stats: new Stats_1.EndpointStats(endpointStatistics),
-                app_events: [...this._appEvents],
-                client_events: [...this._clientEvents]
-            };
-            this._clearEvents();
-            this._vidyoCore.Controllers.ConnectionController.SendClientStats(this._provider, data)
-                .then((result) => result)
-                .catch(() => false)
-                .then((result) => {
-                if (!result && this._provider) {
-                    if (data.app_events.length) {
-                        this._vidyoCore.Controllers.LogController.LogDebug(() => {
-                            return `VidyoInsights is unable to send ${data.client_events.length} app events. Prepending it back to the queue`;
-                        });
-                        this._appEvents.unshift(...data.app_events);
-                    }
-                    if (data.client_events.length) {
-                        this._vidyoCore.Controllers.LogController.LogDebug(() => {
-                            return `VidyoInsights is unable to send ${data.client_events.length} client events. Prepending it back to the queue`;
-                        });
-                        this._clientEvents.unshift(...data.client_events);
-                    }
-                }
-            });
-        }
-    }
-}
-exports.default = VidyoInsights;
-
-},{"../../../../vidyo_simple_api/stats/Stats":219,"../../../events/AnalyticsEvents":58,"../../../events/ConferenceEvents":60,"../../../events/ConnectionEvents":61,"../../../events/EventDispatcher":63,"../../../events/ModerationEvents":67,"../../../events/ResourcesManagerEvents":71,"../../../events/StreamEvents":74,"../../../models/analytics/VidyoInsights":100,"../../../utils/TimingProvider":168,"../../../utils/VidyoInsightsProvider":173}],30:[function(require,module,exports){
+},{"../../events/AdvancedSettingsEvents":55,"../../events/AnalyticsEvents":56,"../../events/ConferenceEvents":58,"../../events/ConnectionEvents":59,"../../events/EventDispatcher":61,"../../utils/Constants":133,"../../utils/GoogleAnalytics":140,"../../utils/LocalStorageProvider":143,"../../utils/OperatingSystemInfoProvider":151,"./AnalyticsController":26}],28:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateControllers = exports.BaseController = void 0;
@@ -12945,7 +11817,7 @@ function CreateControllers(vidyoCore, controllers) {
 }
 exports.CreateControllers = CreateControllers;
 
-},{}],31:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CallStateController = exports.MediaState = exports.BaseMediaState = void 0;
@@ -13026,7 +11898,7 @@ class CallStateController extends BaseController_1.BaseController {
 }
 exports.CallStateController = CallStateController;
 
-},{"../events/CallStateEvents":59,"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/EventDispatcher":63,"./BaseController":30}],32:[function(require,module,exports){
+},{"../events/CallStateEvents":57,"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/EventDispatcher":61,"./BaseController":28}],30:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConferenceController = void 0;
@@ -13167,7 +12039,7 @@ class ConferenceController extends BaseController_1.BaseController {
     }
     UpdateSourcesState() {
         if (this._vidyoCore.Controllers.RendererController.RenderMode === RendererTypes_1.RenderMode.Composite) {
-            const maxRemoteSourcesLimit = this._vidyoCore.Controllers.ResourcesManager.CurrentStaticSourcesLimit;
+            const maxRemoteSourcesLimit = this._vidyoCore.Controllers.ResourcesManager.CurrentSourcesLimit;
             this._staticSources.forEach((val, index) => {
                 const active = index < maxRemoteSourcesLimit;
                 if (val.active !== active) {
@@ -13566,7 +12438,6 @@ DialogIdentity: ${JSON.stringify(identity, null, 1).replace(/["\n]/g, '')}`;
             this._vidyoCore.Controllers.ParticipantController
                 .RemoveParticipantDevice(toRemovePayload.participantId, toRemovePayload.ssrc, toRemovePayload.type);
         });
-        this.UpdateSourcesState();
     }
     _sendFirstDynamicShow() {
         const browserVersion = parseFloat(OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.BrowserVersion);
@@ -13720,7 +12591,7 @@ DialogIdentity: ${JSON.stringify(identity, null, 1).replace(/["\n]/g, '')}`;
     }
     _getDynamicSourcesLimit() {
         const controllers = this._vidyoCore.Controllers;
-        return Math.max(0, controllers.ResourcesManager.CurrentDynamicSourcesLimit);
+        return Math.max(0, controllers.ResourcesManager.CurrentDynamicSourcesLimit - controllers.ParticipantController.PinnedParticipantsCount);
     }
     _needSendDynamicShow(dynamicShowPayload) {
         if (!this._lastShow.dynamicShow) {
@@ -13781,7 +12652,7 @@ DialogIdentity: ${JSON.stringify(identity, null, 1).replace(/["\n]/g, '')}`;
 }
 exports.ConferenceController = ConferenceController;
 
-},{"../../../vidyo_simple_api/VidyoSimple":195,"../../events/ConferenceEvents":60,"../../events/ConnectionEvents":61,"../../events/EventDispatcher":63,"../../events/RenderEvents":70,"../../events/ResourcesManagerEvents":71,"../../events/StatisticsEvents":73,"../../events/StreamEvents":74,"../../models/ConferenceCommandParameters":86,"../../models/ConferenceDialogIdentity":87,"../../models/Participant":90,"../../models/RendererTypes":93,"../../models/Source":95,"../../models/VideoResolution":97,"../../utils/Constants":138,"../../utils/NotEqual":153,"../../utils/ObjectUtils":155,"../../utils/OperatingSystemInfoProvider":156,"../BaseController":30,"./ConferenceDialog":33,"./Dialog":34,"./SubscriptionDialog":36}],33:[function(require,module,exports){
+},{"../../../vidyo_simple_api/VidyoSimple":189,"../../events/ConferenceEvents":58,"../../events/ConnectionEvents":59,"../../events/EventDispatcher":61,"../../events/RenderEvents":68,"../../events/ResourcesManagerEvents":69,"../../events/StatisticsEvents":71,"../../events/StreamEvents":72,"../../models/ConferenceCommandParameters":84,"../../models/ConferenceDialogIdentity":85,"../../models/Participant":88,"../../models/RendererTypes":90,"../../models/Source":92,"../../models/VideoResolution":94,"../../utils/Constants":133,"../../utils/NotEqual":148,"../../utils/ObjectUtils":150,"../../utils/OperatingSystemInfoProvider":151,"../BaseController":28,"./ConferenceDialog":31,"./Dialog":32,"./SubscriptionDialog":34}],31:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConferenceDialog = void 0;
@@ -13929,7 +12800,7 @@ AllStates = {
     Terminated: new TerminatedState()
 };
 
-},{"../../events/ConferenceEvents":60,"../../events/EventDispatcher":63,"./Dialog":34,"./DialogBaseState":35}],34:[function(require,module,exports){
+},{"../../events/ConferenceEvents":58,"../../events/EventDispatcher":61,"./Dialog":32,"./DialogBaseState":33}],32:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DialogContext = exports.Dialog = exports.States = void 0;
@@ -13973,7 +12844,7 @@ class DialogContext {
 }
 exports.DialogContext = DialogContext;
 
-},{}],35:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BaseState = void 0;
@@ -13987,7 +12858,7 @@ class BaseState {
 }
 exports.BaseState = BaseState;
 
-},{}],36:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubscriptionDialog = void 0;
@@ -14107,7 +12978,7 @@ AllStates = {
     Terminated: new TerminatedState()
 };
 
-},{"../../events/ConferenceEvents":60,"../../events/EventDispatcher":63,"./Dialog":34,"./DialogBaseState":35}],37:[function(require,module,exports){
+},{"../../events/ConferenceEvents":58,"../../events/EventDispatcher":61,"./Dialog":32,"./DialogBaseState":33}],35:[function(require,module,exports){
 "use strict";
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -14139,18 +13010,17 @@ class ConnectionController extends BaseController_1.BaseController {
     constructor() {
         super(...arguments);
         this._disconnectingPromise = null;
-        this._endpointDetails = {};
         this._reconnectOptions = null;
-        this._routersPoolName = null;
+        this._reflectorsPoolName = null;
     }
-    set RoutersPoolName(poolName) {
-        this._routersPoolName = poolName;
+    set ReflectorsPoolName(poolName) {
+        this._reflectorsPoolName = poolName;
     }
-    get RoutersPoolName() {
-        return this._routersPoolName;
+    get ReflectorsPoolName() {
+        return this._reflectorsPoolName;
     }
-    get HasRoutersPoolName() {
-        return !!this._routersPoolName;
+    get HasReflectorsPoolName() {
+        return !!this._reflectorsPoolName;
     }
     get ReconnectOptions() {
         return ObjectUtils_1.default.Copy(this._reconnectOptions);
@@ -14177,13 +13047,10 @@ class ConnectionController extends BaseController_1.BaseController {
     CreateConnection(options) {
         return Promise.resolve(true);
     }
-    async CreateHunterConnection(options) {
+    CreateHunterConnection(options) {
         if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsBrowserVersionNotSupported()) {
             return Promise.reject(VidyoConnector_1.VidyoConnectorFailReason.BrowserVersionNotSupported);
         }
-        const getLocationTagStartTime = Date.now();
-        const locationTag = await this._getLocationTag(options.host);
-        this._vidyoCore.Controllers.StatisticsController.EndpointStatistic.LocationTagDetectionTimeConsumedMs = Date.now() - getLocationTagStartTime;
         const enableScreenShareSimulcast = this._vidyoCore.Controllers.AdvancedSettingsController.EnableScreenShareSimulcast;
         const enableVideoSimulcast = this._vidyoCore.Controllers.AdvancedSettingsController.EnableVideoSimulcast;
         const enableOpusDTX = this._vidyoCore.Controllers.AdvancedSettingsController.EnableOpusDTX;
@@ -14194,13 +13061,12 @@ class ConnectionController extends BaseController_1.BaseController {
             host: options.host,
             roomKey: options.roomKey,
             port: Constants.DefaultPort,
-            locationTag: locationTag,
+            locationTag: this._reflectorsPoolName,
             roomPin: options.roomPin,
+            extData: this._vidyoCore.Controllers.AdvancedSettingsController.ExtData,
+            extDataType: this._vidyoCore.Controllers.AdvancedSettingsController.ExtDataType,
             secure: true,
-            enableOpusDTX: enableOpusDTX,
-            endpointDetails: {
-                ...this._endpointDetails
-            }
+            enableOpusDTX: enableOpusDTX
         };
         options = ObjectUtils_1.default.Merge(defaultOptions, options);
         if (options.credentials && options.credentials.token) {
@@ -14261,33 +13127,20 @@ class ConnectionController extends BaseController_1.BaseController {
     RemoveStream(stream) {
         return this._vidyoCore.HunterProvider.RemoveStream(stream);
     }
-    SendClientStats(sendStatsProvider, data) {
-        return this._vidyoCore.HunterProvider.SendClientStats(sendStatsProvider, data);
-    }
-    SetEndpointDetails(productInfo, supportedFeatures) {
-        this._endpointDetails = {
-            ...productInfo,
-            ...supportedFeatures
-        };
-        this._vidyoCore.Controllers.LogController.LogDebug(() => {
-            return `Endpoint details updated: ${JSON.stringify(Object.keys(this._endpointDetails), null, 2)}`;
-        });
-        this._vidyoCore.EventDispatcher.emit(ConnectionEvents.Events.EndpointDetailsChanged, {
-            ...this._endpointDetails
-        });
+    SendClientStats(sendStatsProvider, stats) {
+        this._vidyoCore.HunterProvider.SendClientStats(sendStatsProvider, stats);
     }
     StartMediaExchange() {
-        const startEnableMediaTime = Date.now();
-        this._vidyoCore.HunterProvider.MediaStart({
-            jid: this._vidyoCore.Controllers.RoomController.RoomJid(),
-            start: {}
-        });
-        this._vidyoCore.EventDispatcher.once(StreamEvents.Events.MediaEnabled, EventDispatcher_1.ConnectionControllerListeners, () => {
-            const enableMediaLatency = Date.now() - startEnableMediaTime;
+        const startEnableMediaTime = new Date();
+        return Promise.resolve().then(() => {
+            this._vidyoCore.HunterProvider.MediaStart({
+                jid: this._vidyoCore.Controllers.RoomController.RoomJid(),
+                start: {}
+            });
+            const enableMediaLatency = new Date().getTime() - startEnableMediaTime.getTime();
             this._vidyoCore.Controllers.StatisticsController.EndpointStatistic.MediaEnableTimeConsumedMs = enableMediaLatency;
-            this._vidyoCore.Controllers.LogController.LogInfo(() => `Start media exchange latency ${enableMediaLatency}ms`);
+            this._vidyoCore.Controllers.LogController.LogInfo(() => `Start media exchange ${enableMediaLatency}`);
         });
-        return Promise.resolve();
     }
     _disconnect(payload) {
         try {
@@ -14309,81 +13162,6 @@ class ConnectionController extends BaseController_1.BaseController {
         this._vidyoCore.EventDispatcher.emit(ConnectionEvents.Events.Disconnecting);
         this._vidyoCore.EventDispatcher.emitAsync(ConnectionEvents.Events.Disconnected, payload);
         this._disconnectingPromise = null;
-    }
-    async _fetchIceCandidate(url) {
-        if (!url)
-            return Promise.reject(`Wrong url ${url}`);
-        return new Promise(async (resolve, reject) => {
-            let pc = new RTCPeerConnection({ iceServers: [{ "urls": `${url}:443`, "username": "vidyo", "credential": "tHISiSarEALLYlONGpASSWORD@2037" }] });
-            pc.onicecandidate = (ice) => {
-                if (!ice.candidate) {
-                    reject('Failed to gather ice candidates');
-                    pc.close();
-                }
-                if (ice.candidate?.type === 'relay') {
-                    resolve();
-                    pc.close();
-                }
-            };
-            pc.addTransceiver('audio');
-            await pc.setLocalDescription();
-            setTimeout(() => {
-                reject('TIMEOUT');
-                pc.close();
-            }, Constants.LatencyCheckTimeout);
-        });
-    }
-    async _findClosestRoutersPool(host) {
-        if (!this._vidyoCore.Controllers.AdvancedSettingsController.EnableGeolocation
-            || !this._vidyoCore.Controllers.AdvancedSettingsController.GeolocationServiceURL) {
-            return Promise.resolve('');
-        }
-        try {
-            const geolocationServiceURL = this._vidyoCore.Controllers.AdvancedSettingsController.GeolocationServiceURL;
-            const queryURL = `${geolocationServiceURL}/${host}`;
-            this._vidyoCore.Controllers.LogController.LogInfo(() => `Geolocation query url: ${queryURL}`);
-            const response = await fetch(queryURL);
-            const routersData = await response.json();
-            try {
-                const routerData = await Promise.any(routersData.map((rData) => {
-                    return new Promise(async (resolve, reject) => {
-                        try {
-                            const t0 = performance.now();
-                            await this._fetchIceCandidate(rData.routerURL);
-                            const t1 = performance.now();
-                            const responseTime = Math.round(t1 - t0);
-                            this._vidyoCore.Controllers.LogController.LogInfo(() => `Geolocation check router url: ${rData.routerURL}, response time: ${responseTime} ms`);
-                            resolve(rData);
-                        }
-                        catch (reason) {
-                            if (reason === 'TIMEOUT') {
-                                this._vidyoCore.Controllers.LogController.LogInfo(() => `Geolocation check router url: ${rData.routerURL}, aborted by timeout`);
-                            }
-                            else {
-                                this._vidyoCore.Controllers.LogController.LogInfo(() => `Geolocation check router url: ${rData.routerURL}, ${reason}`);
-                            }
-                            reject();
-                        }
-                    });
-                }));
-                return Promise.resolve(routerData.locationTag);
-            }
-            catch (e) {
-                throw new Error('Failed to check latency for every router');
-            }
-        }
-        catch (e) {
-            this._vidyoCore.Controllers.LogController.LogWarning(() => `Failed to do geolocation test: ${e?.message}`);
-        }
-        return Promise.resolve('');
-    }
-    async _getLocationTag(host) {
-        if (this.HasRoutersPoolName) {
-            return Promise.resolve(this.RoutersPoolName);
-        }
-        else {
-            return this._findClosestRoutersPool(host);
-        }
     }
     _initReconnectStateMachine() {
         const { AdvancedSettingsController, LogController, RoomController } = this._vidyoCore.Controllers;
@@ -14631,11 +13409,10 @@ __decorate([
 ], ConnectionController.prototype, "CreateConnection", null);
 exports.ConnectionController = ConnectionController;
 
-},{"../../vidyo_connector_api/VidyoConnector":184,"../events/AdvancedSettingsEvents":57,"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/EventDispatcher":63,"../events/LogEvents":64,"../events/StreamEvents":74,"../models/RendererTypes":93,"../utils/Constants":138,"../utils/Decorators":139,"../utils/FiniteStateMachine":144,"../utils/LocationProvider":149,"../utils/ObjectUtils":155,"../utils/OperatingSystemInfoProvider":156,"../utils/ReconnectUtils":161,"../utils/TokenUtils":169,"./BaseController":30}],38:[function(require,module,exports){
+},{"../../vidyo_connector_api/VidyoConnector":178,"../events/AdvancedSettingsEvents":55,"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/EventDispatcher":61,"../events/LogEvents":62,"../events/StreamEvents":72,"../models/RendererTypes":90,"../utils/Constants":133,"../utils/Decorators":134,"../utils/FiniteStateMachine":139,"../utils/LocationProvider":144,"../utils/ObjectUtils":150,"../utils/OperatingSystemInfoProvider":151,"../utils/ReconnectUtils":156,"../utils/TokenUtils":164,"./BaseController":28}],36:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeviceController = void 0;
-const AnalyticsEvents = require("../events/AnalyticsEvents");
 const ConferenceEvents = require("../events/ConferenceEvents");
 const ConnectionEvents = require("../events/ConnectionEvents");
 const DeviceEvents = require("../events/DeviceEvents");
@@ -14669,9 +13446,7 @@ class DeviceController extends BaseController_1.BaseController {
         this._deviceSelection = new DeviceSelection_1.DeviceSelection();
         this._localSpeakerSourceState = new Map();
         this._localWindowSharePreviewLabel = 'Preview';
-        this._localWindowShareEndLabel = 'End share';
         this._monitorSharePreviewLabel = 'Preview';
-        this._monitorShareEndLabel = 'End share';
         this._systemDefaultMicrophoneSafari = null;
     }
     get DefaultMicrophone() {
@@ -15019,12 +13794,6 @@ class DeviceController extends BaseController_1.BaseController {
     GetWindowSharePreviewLabel() {
         return this._localWindowSharePreviewLabel;
     }
-    GetWindowShareEndLabel() {
-        return this._localWindowShareEndLabel;
-    }
-    GetMonitorShareEndLabel() {
-        return this._monitorShareEndLabel;
-    }
     GetMonitorSharePreviewLabel() {
         return this._monitorSharePreviewLabel;
     }
@@ -15339,16 +14108,6 @@ class DeviceController extends BaseController_1.BaseController {
             }
         }
     }
-    SetPreviewTag(previewTag, cameraId) {
-        const camera = this._deviceList.Cameras.Find(cameraId);
-        if (camera) {
-            camera.PreviewTag = previewTag;
-            const selectedCamera = this._deviceSelection.Camera.Device;
-            if (selectedCamera && selectedCamera.Id === camera.Id) {
-                this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.UpdateLocalViewTag);
-            }
-        }
-    }
     SetWindowSharePreviewLabel(previewLabel) {
         this._localWindowSharePreviewLabel = previewLabel;
         this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.UpdateWindowShareViewLabel);
@@ -15356,14 +14115,6 @@ class DeviceController extends BaseController_1.BaseController {
     SetMonitorSharePreviewLabel(previewLabel) {
         this._monitorSharePreviewLabel = previewLabel;
         this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.UpdateMonitorShareViewLabel);
-    }
-    SetWindowShareEndLabel(endLabel) {
-        this._localWindowShareEndLabel = endLabel;
-        this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.UpdateWindowShareEndLabel);
-    }
-    SetMonitorShareEndLabel(endLabel) {
-        this._monitorShareEndLabel = endLabel;
-        this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.UpdateMonitorShareEndLabel);
     }
     SetSpeakerMuteState(mute) {
         if (mute === this._deviceSelection.Speaker.Muted) {
@@ -15388,10 +14139,10 @@ class DeviceController extends BaseController_1.BaseController {
         }
         this._deviceSelection.Camera.Muted = mute;
         this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.CameraSettingsChanged, this._deviceSelection.Camera);
-        if (this._deviceSelection.Camera.Device && mute) {
+        if (this._deviceSelection.Camera.Device) {
             this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.CameraStateUpdated, {
                 camera: this._deviceSelection.Camera.Device,
-                state: VidyoSimple_1.VidyoDeviceState.Stopped
+                state: mute ? VidyoSimple_1.VidyoDeviceState.Stopped : VidyoSimple_1.VidyoDeviceState.Started
             });
         }
         return Promise.resolve(true);
@@ -15648,7 +14399,6 @@ class DeviceController extends BaseController_1.BaseController {
         }
     }
     _selectCamera(camera) {
-        const prevDevice = this._deviceSelection.Camera.Device;
         let cameraDevice;
         if (camera) {
             cameraDevice = this._deviceList.Cameras.Find(camera.Id) || undefined;
@@ -15660,11 +14410,6 @@ class DeviceController extends BaseController_1.BaseController {
         const payload = cameraDevice ? { camera: cameraDevice } : undefined;
         this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.CameraSelected, payload);
         this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.UpdateLocalViewLabel);
-        this._vidyoCore.EventDispatcher.emit(AnalyticsEvents.ClientEvents.DeviceChanged, {
-            deviceType: Devices_1.VidyoDeviceType.LocalCamera,
-            oldName: prevDevice?.Name,
-            newName: cameraDevice?.Name
-        });
     }
     _selectMicrophone(microphone) {
         const prevDevice = this._deviceSelection.Microphone.Device;
@@ -15679,14 +14424,8 @@ class DeviceController extends BaseController_1.BaseController {
         }
         const payload = microphoneDevice ? { microphone: microphoneDevice } : undefined;
         this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.MicrophoneSelected, payload);
-        this._vidyoCore.EventDispatcher.emit(AnalyticsEvents.ClientEvents.DeviceChanged, {
-            deviceType: Devices_1.VidyoDeviceType.LocalMicrophone,
-            oldName: prevDevice?.Name,
-            newName: microphoneDevice?.Name
-        });
     }
     _selectSpeaker(speaker) {
-        const prevDevice = this._deviceSelection.Speaker.Device;
         this._vidyoCore.Controllers.PersistedSettingsController.SelectedSpeaker = speaker ? speaker.Id : null;
         if (speaker) {
             this._deviceSelection.SelectSpeaker(speaker);
@@ -15698,16 +14437,11 @@ class DeviceController extends BaseController_1.BaseController {
         const payload = speakerDevice ? { speaker: speakerDevice } : undefined;
         this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.SpeakerSelected, payload);
         this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.SpeakerSettingsChanged, this._deviceSelection.Speaker);
-        this._vidyoCore.EventDispatcher.emit(AnalyticsEvents.ClientEvents.DeviceChanged, {
-            deviceType: Devices_1.VidyoDeviceType.LocalSpeaker,
-            oldName: prevDevice?.Name,
-            newName: speakerDevice?.Name
-        });
     }
 }
 exports.DeviceController = DeviceController;
 
-},{"../../vidyo_simple_api/Devices":187,"../../vidyo_simple_api/VidyoSimple":195,"../events/AnalyticsEvents":58,"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/DeviceEvents":62,"../events/EventDispatcher":63,"../events/PermissionEvents":69,"../events/RenderEvents":70,"../events/RoomEvents":72,"../models/Permission":91,"../models/device/Camera":101,"../models/device/DeviceList":103,"../models/device/DeviceSelection":104,"../models/device/Microphone":105,"../models/device/Speaker":106,"../utils/Constants":138,"../utils/DtmfPlayer":140,"../utils/MediaDevicesProvider":150,"../utils/OperatingSystemInfoProvider":156,"../utils/TimingProvider":168,"../utils/UserMediaProvider":170,"./BaseController":30,"uuid":8}],39:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../../vidyo_simple_api/VidyoSimple":189,"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/DeviceEvents":60,"../events/EventDispatcher":61,"../events/PermissionEvents":67,"../events/RenderEvents":68,"../events/RoomEvents":70,"../models/Permission":89,"../models/device/Camera":95,"../models/device/DeviceList":97,"../models/device/DeviceSelection":98,"../models/device/Microphone":99,"../models/device/Speaker":100,"../utils/Constants":133,"../utils/DtmfPlayer":135,"../utils/MediaDevicesProvider":145,"../utils/OperatingSystemInfoProvider":151,"../utils/TimingProvider":163,"../utils/UserMediaProvider":165,"./BaseController":28,"uuid":7}],37:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogRecord = exports.LogController = void 0;
@@ -15950,9 +14684,8 @@ class LogController extends BaseController_1.BaseController {
                 EventType: 'WebRTCClientLogs'
             };
             const localParticipant = this._vidyoCore.Controllers.ParticipantController.GetLocalParticipant();
-            if (localParticipant) {
+            if (localParticipant && localParticipant.Id) {
                 labels.ClientParticipantId = localParticipant.Id;
-                labels.ClientParticipantName = localParticipant.Name;
             }
             if (this._vidyoCore.Controllers.ConnectionController.Reflector()) {
                 labels.ClientRouterName = this._vidyoCore.Controllers.ConnectionController.Reflector();
@@ -16032,7 +14765,7 @@ class LogRecord {
 }
 exports.LogRecord = LogRecord;
 
-},{"../../events/AdvancedSettingsEvents":57,"../../events/LogEvents":64,"../../utils/Constants":138,"../../utils/EventListFactory":143,"../../utils/OperatingSystemInfoProvider":156,"../../utils/StringUtils":166,"../../utils/VidyoDebugger":172,"../../utils/VidyoInsightsProvider":173,"../BaseController":30,"./LogLevelParser":40,"json-decycle":4}],40:[function(require,module,exports){
+},{"../../events/AdvancedSettingsEvents":55,"../../events/LogEvents":62,"../../utils/Constants":133,"../../utils/EventListFactory":138,"../../utils/OperatingSystemInfoProvider":151,"../../utils/StringUtils":161,"../../utils/VidyoDebugger":167,"../../utils/VidyoInsightsProvider":168,"../BaseController":28,"./LogLevelParser":38,"json-decycle":4}],38:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogLevelParser = void 0;
@@ -16218,7 +14951,7 @@ class LogLevelParser {
 }
 exports.LogLevelParser = LogLevelParser;
 
-},{"../../events/LogEvents":64}],41:[function(require,module,exports){
+},{"../../events/LogEvents":62}],39:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessageController = exports.ChatStates = void 0;
@@ -16397,7 +15130,7 @@ class MessageController extends BaseController_1.BaseController {
 }
 exports.MessageController = MessageController;
 
-},{"../events/EventDispatcher":63,"../events/MessageEvents":65,"../events/ParticipantEvents":68,"../models/Message":89,"../models/Participant":90,"../models/RendererTypes":93,"./BaseController":30}],42:[function(require,module,exports){
+},{"../events/EventDispatcher":61,"../events/MessageEvents":63,"../events/ParticipantEvents":66,"../models/Message":87,"../models/Participant":88,"../models/RendererTypes":90,"./BaseController":28}],40:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MicrophoneEnergyLevelController = void 0;
@@ -16424,7 +15157,6 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
         this._fftBins = new Float32Array(this._fftSize);
         this._localSources = [];
         this._remoteSources = {};
-        this._lastMaxEnergyLevel = null;
         this._nextProcessTimeout = null;
         this._localOnEnergyCallback = null;
         this._remoteOnEnergyCallback = null;
@@ -16571,10 +15303,8 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
         }
     }
     _handleTracksChanged(participantOrStreamId) {
-        const localMicrophoneStream = this._vidyoCore.Controllers.LocalStreamController.MicrophoneAudioStrem;
-        const localAudioContentStream = this._vidyoCore.Controllers.LocalStreamController.AudioContentStream;
-        const localStreams = [localMicrophoneStream, localAudioContentStream];
-        if (localStreams.find((localStream) => localStream?.Id === participantOrStreamId)) {
+        const localStream = this._vidyoCore.Controllers.LocalStreamController.MicrophoneAudioStrem;
+        if (localStream?.Id === participantOrStreamId) {
             this._handleLocalTracksChanged();
         }
         else {
@@ -16587,27 +15317,20 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
         this._nextProcessTimeout = window.setTimeout(() => this._process(), this._processPeriod);
     }
     _processLocalSources() {
-        let maxEnergyLevel = this._minLgAudioLevel;
         this._localSources.forEach((sourceData) => {
-            if (!this._vidyoCore.Controllers.LocalStreamController.IsAudioEnabled()) {
+            if (this._vidyoCore.Controllers.DeviceController.GetAudioMuteState()) {
                 sourceData.audioLevel = this._minLgAudioLevel;
                 return;
             }
             sourceData.audioLevel = this._calculateAudioLevel(sourceData.analyser);
-            if (sourceData.audioLevel > maxEnergyLevel) {
-                maxEnergyLevel = sourceData.audioLevel;
-            }
+            this._vidyoCore.EventDispatcher.emitAsync(MicrophoneEnergyEvents.Events.MicrophoneEnergyLevelUpdate, {
+                audioLevel: sourceData.audioLevel,
+                isLocal: true
+            });
             if (this._localOnEnergyCallback) {
                 this._localOnEnergyCallback.onEnergy(sourceData.vidyoMicrophone, sourceData.audioLevel);
             }
         });
-        if (maxEnergyLevel !== this._lastMaxEnergyLevel) {
-            this._lastMaxEnergyLevel = maxEnergyLevel;
-            this._vidyoCore.EventDispatcher.emitAsync(MicrophoneEnergyEvents.Events.MicrophoneEnergyLevelUpdate, {
-                audioLevel: this._lastMaxEnergyLevel,
-                isLocal: true
-            });
-        }
     }
     _processRemoteSources() {
         const loudestSource = {
@@ -16615,7 +15338,6 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
             audioLevel: this._minLgAudioLevel
         };
         for (let participantId in this._remoteSources) {
-            let maxEnergyLevel = this._minLgAudioLevel;
             const participantState = this._remoteSources[participantId];
             participantState.sources.forEach((sourceData) => {
                 if (participantState.participant.AudioMuted()) {
@@ -16623,9 +15345,11 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
                     return;
                 }
                 sourceData.audioLevel = this._calculateAudioLevel(sourceData.analyser);
-                if (sourceData.audioLevel > maxEnergyLevel) {
-                    maxEnergyLevel = sourceData.audioLevel;
-                }
+                this._vidyoCore.EventDispatcher.emitAsync(MicrophoneEnergyEvents.Events.MicrophoneEnergyLevelUpdate, {
+                    audioLevel: sourceData.audioLevel,
+                    isLocal: false,
+                    participant: participantState.participant
+                });
                 if (this._remoteOnEnergyCallback) {
                     this._remoteOnEnergyCallback.onEnergy(sourceData.vidyoMicrophone, participantState.vidyoParticipant, sourceData.audioLevel);
                 }
@@ -16634,14 +15358,6 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
                     loudestSource.participant = participantState.participant;
                 }
             });
-            if (maxEnergyLevel !== participantState.maxEnergyLevel) {
-                participantState.maxEnergyLevel = maxEnergyLevel;
-                this._vidyoCore.EventDispatcher.emitAsync(MicrophoneEnergyEvents.Events.MicrophoneEnergyLevelUpdate, {
-                    audioLevel: participantState.maxEnergyLevel,
-                    participant: participantState.participant,
-                    isLocal: false,
-                });
-            }
         }
         if (this._loudestParticipant !== loudestSource.participant) {
             this._loudestParticipant = loudestSource.participant;
@@ -16704,7 +15420,7 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
         this._localSources.forEach((sourceData) => {
             this._disableEnergyLevelSource(sourceData);
         });
-        this._localSources.length = 0;
+        this._localSources = [];
     }
     _removeRemoteParticipantAnaliser(participantId) {
         if (this._remoteSources[participantId]) {
@@ -16716,24 +15432,13 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
     }
     _updateLocalParticipantAnaliser() {
         this._removeLocalParticipantAnaliser();
-        const microphoneStream = this._vidyoCore.Controllers.LocalStreamController.MicrophoneAudioStrem;
-        const audioContentStream = this._vidyoCore.Controllers.LocalStreamController.AudioContentStream;
-        const audioTracks = [];
-        if (microphoneStream) {
-            audioTracks.push(...microphoneStream.GetMediaStream().getAudioTracks());
+        const roStream = this._vidyoCore.Controllers.LocalStreamController.MicrophoneAudioStrem;
+        if (roStream) {
+            this._localSources = roStream.GetMediaStream().getAudioTracks().map((track) => {
+                const { deviceId } = track.getSettings();
+                return this._createEnergyLevelSource(deviceId, track, this._getLocalMicrophone(deviceId));
+            });
         }
-        if (audioContentStream) {
-            audioTracks.push(...audioContentStream.GetMediaStream().getAudioTracks());
-        }
-        audioTracks.forEach((track) => {
-            const deviceId = this._vidyoCore.Controllers.LocalStreamController.GetLocalAudioTrackSettings(track.id)?.deviceId;
-            if (deviceId) {
-                const source = this._createEnergyLevelSource(deviceId, track, this._getLocalMicrophone(deviceId));
-                if (this._localSources.every((s) => s.id !== source.id)) {
-                    this._localSources.push(source);
-                }
-            }
-        });
     }
     _updateRemoteParticipantAnalyser(participant) {
         this._removeRemoteParticipantAnaliser(participant.Id);
@@ -16745,7 +15450,6 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
             });
             this._remoteSources[participant.Id] = {
                 vidyoParticipant: new Participant_1.Participant(participant),
-                maxEnergyLevel: undefined,
                 participant,
                 sources
             };
@@ -16754,7 +15458,7 @@ class MicrophoneEnergyLevelController extends BaseController_1.BaseController {
 }
 exports.MicrophoneEnergyLevelController = MicrophoneEnergyLevelController;
 
-},{"../../vidyo_simple_api/Devices":187,"../../vidyo_simple_api/Origin":190,"../../vidyo_simple_api/Participant":191,"../events/AdvancedSettingsEvents":57,"../events/EventDispatcher":63,"../events/MicrophoneEnergyEvents":66,"../events/ParticipantEvents":68,"../events/StreamEvents":74,"../models/Participant":90,"../utils/StatisticsExtension":165,"./BaseController":30}],43:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../../vidyo_simple_api/Origin":184,"../../vidyo_simple_api/Participant":185,"../events/AdvancedSettingsEvents":55,"../events/EventDispatcher":61,"../events/MicrophoneEnergyEvents":64,"../events/ParticipantEvents":66,"../events/StreamEvents":72,"../models/Participant":88,"../utils/StatisticsExtension":160,"./BaseController":28}],41:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModerationController = void 0;
@@ -16776,8 +15480,8 @@ class ModerationController extends BaseController_1.BaseController {
         this._audioHardMute = false;
         this._videoHardMute = false;
         this._endpointHandRaised = false;
-        this._lastRoomAudioSoftMuteUpdate = null;
-        this._lastRoomVideoSoftMuteUpdate = null;
+        this._roomAudioSoftMute = false;
+        this._roomVideoSoftMute = false;
         this._lectureMode = false;
         this._presenterId = null;
         this._isSharingPermitted = true;
@@ -16835,11 +15539,11 @@ class ModerationController extends BaseController_1.BaseController {
     }
     _onDisconnecting() {
         this._stopRoomStatePolling();
-        this._lastRoomAudioSoftMuteUpdate = null;
-        this._lastRoomVideoSoftMuteUpdate = null;
         this._portalGuestService = null;
         this._roomConferenceMode = null;
         this._endpointHandRaised = false;
+        this._roomAudioSoftMute = false;
+        this._roomVideoSoftMute = false;
         this._videoHardMute = false;
         this._audioHardMute = false;
         this._lectureMode = false;
@@ -16904,14 +15608,14 @@ class ModerationController extends BaseController_1.BaseController {
     _onRoomStateUpdate(payload) {
         this._lectureMode = payload.lectureMode;
         this._handleRoomConferenceModeChanged(this._lectureMode, payload.presenter, payload.waitingRoom);
-        if (payload.roomAudio.softMute && payload.roomAudio.softMuteUpdateTime !== this._lastRoomAudioSoftMuteUpdate) {
+        if (payload.roomAudio.softMute && !this._roomAudioSoftMute) {
             this._onModerationCommand(ModerationEvents.EventServerModerationMessage.ModerationMicrophoneSoftMute);
-            this._lastRoomAudioSoftMuteUpdate = payload.roomAudio.softMuteUpdateTime;
         }
-        if (payload.roomVideo.softMute && payload.roomVideo.softMuteUpdateTime !== this._lastRoomVideoSoftMuteUpdate) {
+        if (payload.roomVideo.softMute && !this._roomVideoSoftMute) {
             this._onModerationCommand(ModerationEvents.EventServerModerationMessage.ModerationCameraSoftMute);
-            this._lastRoomVideoSoftMuteUpdate = payload.roomVideo.softMuteUpdateTime;
         }
+        this._roomAudioSoftMute = payload.roomAudio.softMute;
+        this._roomVideoSoftMute = payload.roomVideo.softMute;
     }
     _onModerationCommand(payload) {
         let deviceType;
@@ -17023,7 +15727,7 @@ class ModerationController extends BaseController_1.BaseController {
 }
 exports.ModerationController = ModerationController;
 
-},{"../../vidyo_simple_api/Devices":187,"../../vidyo_simple_api/Participant":191,"../../vidyo_simple_api/Room":193,"../events/ConnectionEvents":61,"../events/EventDispatcher":63,"../events/ModerationEvents":67,"../events/ParticipantEvents":68,"../events/RoomEvents":72,"../utils/Constants":138,"../utils/TimingProvider":168,"../utils/VidyoPortalGuestService":174,"./BaseController":30}],44:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../../vidyo_simple_api/Participant":185,"../../vidyo_simple_api/Room":187,"../events/ConnectionEvents":59,"../events/EventDispatcher":61,"../events/ModerationEvents":65,"../events/ParticipantEvents":66,"../events/RoomEvents":70,"../utils/Constants":133,"../utils/TimingProvider":163,"../utils/VidyoPortalGuestService":169,"./BaseController":28}],42:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ParticipantController = void 0;
@@ -17046,7 +15750,6 @@ class ParticipantController extends BaseController_1.BaseController {
     constructor() {
         super(...arguments);
         this._reportLocalParticipant = false;
-        this._lastDynamicParticipantsReported = [];
     }
     get RemoteSharesCount() {
         return this._vidyoCore.Controllers.ParticipantController.GetParticipants({ Origin: Participant_1.ParticipantOrigin.Remote })
@@ -17296,13 +15999,6 @@ class ParticipantController extends BaseController_1.BaseController {
         participant.Sources.push(source);
         this._vidyoCore.EventDispatcher.emit(ParticipantEvents.Events.ParticipantsChanged);
     }
-    _notifyDynamicParticipantChanged(participants) {
-        if (ObjectUtils_1.default.IsEqual(participants, this._lastDynamicParticipantsReported)) {
-            return;
-        }
-        this._vidyoCore.EventDispatcher.emit(ParticipantEvents.Events.DynamicParticipantChanged, { participants });
-        this._lastDynamicParticipantsReported = participants;
-    }
     _onDisconnecting() {
         Object.keys(this._participants).forEach((participantId) => this.RemoveParticipant(participantId));
     }
@@ -17337,26 +16033,10 @@ class ParticipantController extends BaseController_1.BaseController {
             });
         });
     }
-    _onSelectedParticipantsChanged({ participants }) {
-        const completeParticipants = [];
-        const incompleteParticipants = [];
-        participants.forEach((participant) => {
-            if (participant.IsComplete) {
-                completeParticipants.push(participant);
-            }
-            else {
-                incompleteParticipants.push(participant);
-            }
+    _onSelectedParticipantsChanged(payload) {
+        this._vidyoCore.EventDispatcher.emit(ParticipantEvents.Events.DynamicParticipantChanged, {
+            participants: payload.participants
         });
-        this._notifyDynamicParticipantChanged(completeParticipants);
-        if (incompleteParticipants.length) {
-            incompleteParticipants.forEach((incompleteParticipant) => {
-                incompleteParticipant.onJoinedEvent = () => {
-                    this._notifyDynamicParticipantChanged(participants.filter((participant) => participant.IsComplete));
-                    incompleteParticipant.onJoinedEvent = null;
-                };
-            });
-        }
     }
     _onSelectedParticipantsRemoved(payload) {
         if (this._participants.hasOwnProperty(payload.id)) {
@@ -17367,7 +16047,7 @@ class ParticipantController extends BaseController_1.BaseController {
 }
 exports.ParticipantController = ParticipantController;
 
-},{"../../vidyo_simple_api/Devices":187,"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/DeviceEvents":62,"../events/EventDispatcher":63,"../events/ParticipantEvents":68,"../events/StreamEvents":74,"../models/Participant":90,"../models/Source":95,"../models/device/Camera":101,"../models/device/Microphone":105,"../models/device/WindowShare":107,"../utils/AssertExhaustiveSwitch":134,"../utils/ObjectUtils":155,"./BaseController":30}],45:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/DeviceEvents":60,"../events/EventDispatcher":61,"../events/ParticipantEvents":66,"../events/StreamEvents":72,"../models/Participant":88,"../models/Source":92,"../models/device/Camera":95,"../models/device/Microphone":99,"../models/device/WindowShare":101,"../utils/AssertExhaustiveSwitch":129,"../utils/ObjectUtils":150,"./BaseController":28}],43:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PermissionController = void 0;
@@ -17481,7 +16161,7 @@ class PermissionController extends BaseController_1.BaseController {
 }
 exports.PermissionController = PermissionController;
 
-},{"../../core/events/PermissionEvents":69,"../events/EventDispatcher":63,"../models/Permission":91,"../utils/PermissionProvider":157,"./BaseController":30}],46:[function(require,module,exports){
+},{"../../core/events/PermissionEvents":67,"../events/EventDispatcher":61,"../models/Permission":89,"../utils/PermissionProvider":152,"./BaseController":28}],44:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PersistedSettingsController = void 0;
@@ -17515,7 +16195,7 @@ class PersistedSettingsController extends PersistedSettingsTemplate(BaseControll
 }
 exports.PersistedSettingsController = PersistedSettingsController;
 
-},{"../utils/AutoPropertyHelper":136,"../utils/LocalStorageProvider":148,"./BaseController":30}],47:[function(require,module,exports){
+},{"../utils/AutoPropertyHelper":131,"../utils/LocalStorageProvider":143,"./BaseController":28}],45:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RendererController = void 0;
@@ -17529,6 +16209,8 @@ const Types = require("../models/RendererTypes");
 const BaseController_1 = require("./BaseController");
 const VideoResolution_1 = require("../models/VideoResolution");
 const Collection_1 = require("../utils/Collection");
+const GridLayout_1 = require("../models/renderer/GridLayout");
+const TrackMetaDataProvider_1 = require("./StreamController/TrackMetaDataProvider");
 const EventDispatcher_1 = require("../events/EventDispatcher");
 const VideoPlaceholderTrack_1 = require("../utils/VideoPlaceholderTrack");
 const ObjectUtils_1 = require("../utils/ObjectUtils");
@@ -17545,8 +16227,11 @@ class RenderState {
 class RendererController extends BaseController_1.BaseController {
     constructor() {
         super(...arguments);
+        this.ApplicationGridLayout = new GridLayout_1.GridLayout(0, 0);
         this.DebounceTimeForResize = 1000;
         this.MaxNumberOfTracks = 9;
+        this.MediaGridSplit = 'horizontal';
+        this.VideoGridLayout = new GridLayout_1.GridLayout();
         this._previewOn = true;
         this._showLocalPreview = true;
         this._showLocalSharePreview = false;
@@ -17567,12 +16252,6 @@ class RendererController extends BaseController_1.BaseController {
     }
     get Views() {
         return this._state.Views;
-    }
-    CompositorSetGalleryView() {
-        this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.CompositorSetGalleryView);
-    }
-    CompositorSetGridView() {
-        this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.CompositorSetGridView);
     }
     AssignViewToCompositeRenderer(options) {
         let { viewId, viewStyle, remoteParticipants } = options;
@@ -17754,7 +16433,34 @@ class RendererController extends BaseController_1.BaseController {
         }
     }
     UpdateVideoResolutions(videoContainer, videos) {
+        let videoAspectRatioSum = 0;
+        let videoAspectRatioCount = 0;
+        let videoZeroSizeTracks = 0;
+        let applicationAspectRatioSum = 0;
+        let applicationAspectRatioCount = 0;
+        let applicationZeroSizeTracks = 0;
         videos.forEach((video) => {
+            let trackType = this._vidyoCore.Controllers.RemoteStreamController.TryGetParticipantStream(video.Id)
+                ? this._vidyoCore.Controllers.RemoteStreamController.GetTrackMediaType(video.Id)
+                : this._vidyoCore.Controllers.LocalStreamController.GetStreamTrackMediaType(video.Id);
+            if (trackType === TrackMetaDataProvider_1.MediaTrackType.Application || video.IsPinned) {
+                if (video.Width > 0 && video.Height > 0) {
+                    applicationAspectRatioSum += video.AspectRatio;
+                    applicationAspectRatioCount += 1;
+                }
+                else {
+                    applicationZeroSizeTracks += 1;
+                }
+            }
+            else {
+                if (video.Width > 0 && video.Height > 0) {
+                    videoAspectRatioSum += video.AspectRatio;
+                    videoAspectRatioCount += 1;
+                }
+                else {
+                    videoZeroSizeTracks += 1;
+                }
+            }
             let oldResolution = this._state.Resolutions.Get(video.Id);
             if (oldResolution.AspectRatioRatioType !== video.AspectRatioRatioType) {
                 this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.VideoCropSettingsChanged, video);
@@ -17767,6 +16473,28 @@ class RendererController extends BaseController_1.BaseController {
             return change;
         });
         this._state.Resolutions.UpdateVideoResolutions(videoContainer, videos);
+        const applicationToVideoRatio = 0.8;
+        let applicationGridCoefficient = 0;
+        if (applicationAspectRatioCount > 0 && videoAspectRatioCount > 0) {
+            applicationGridCoefficient = applicationToVideoRatio;
+        }
+        else if (applicationAspectRatioCount > 0 && videoAspectRatioCount <= 0) {
+            applicationGridCoefficient = 1;
+        }
+        let videoGridCoefficient = 1 - applicationGridCoefficient;
+        if (videoContainer.AspectRatio <= 1) {
+            applicationGridCoefficient = 1 / applicationGridCoefficient;
+            videoGridCoefficient = 1 / videoGridCoefficient;
+            this.MediaGridSplit = 'vertical';
+        }
+        else {
+            this.MediaGridSplit = 'horizontal';
+        }
+        const videoGridLayoutChanged = this.VideoGridLayout.Update(videoAspectRatioCount + videoZeroSizeTracks, videoContainer.AspectRatio * videoGridCoefficient, videoAspectRatioSum / videoAspectRatioCount, !!applicationGridCoefficient);
+        const applicationGridChanged = this.ApplicationGridLayout.Update(applicationAspectRatioCount + applicationZeroSizeTracks, videoContainer.AspectRatio * applicationGridCoefficient, applicationAspectRatioSum / applicationAspectRatioCount);
+        if (videoGridLayoutChanged || applicationGridChanged) {
+            this._vidyoCore.EventDispatcher.emit(RenderEvents.Events.GridLayoutChanged);
+        }
         if (containerChanged && this._debouncedNotifyOfVideoResolutionChanged) {
             this._debouncedNotifyOfVideoResolutionChanged();
         }
@@ -17823,7 +16551,7 @@ class RendererController extends BaseController_1.BaseController {
 }
 exports.RendererController = RendererController;
 
-},{"../events/DeviceEvents":62,"../events/EventDispatcher":63,"../events/ModerationEvents":67,"../events/ParticipantEvents":68,"../events/RenderEvents":70,"../events/StatisticsEvents":73,"../events/StreamEvents":74,"../models/Participant":90,"../models/RendererTypes":93,"../models/VideoResolution":97,"../utils/Collection":137,"../utils/ObjectUtils":155,"../utils/TimingProvider":168,"../utils/VideoPlaceholderTrack":171,"./BaseController":30}],48:[function(require,module,exports){
+},{"../events/DeviceEvents":60,"../events/EventDispatcher":61,"../events/ModerationEvents":65,"../events/ParticipantEvents":66,"../events/RenderEvents":68,"../events/StatisticsEvents":71,"../events/StreamEvents":72,"../models/Participant":88,"../models/RendererTypes":90,"../models/VideoResolution":94,"../models/renderer/GridLayout":102,"../utils/Collection":132,"../utils/ObjectUtils":150,"../utils/TimingProvider":163,"../utils/VideoPlaceholderTrack":166,"./BaseController":28,"./StreamController/TrackMetaDataProvider":52}],46:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResourcesManager = void 0;
@@ -17852,27 +16580,18 @@ class ResourcesManager extends BaseController_1.BaseController {
     get CurrentDynamicSourcesLimit() {
         const ParticipantController = this._vidyoCore.Controllers.ParticipantController;
         const MIN_DYNAMIC_SOURCES_COUNT = ParticipantController.PinnedParticipantsCount > 0 ? 0 : 1;
-        let currentDynamicSourcesLimit = Math.min(this.CurrentSourcesLimit - this.CurrentRemoteSharesLimit, this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit);
-        currentDynamicSourcesLimit =
-            Math.max(currentDynamicSourcesLimit - ParticipantController.PinnedParticipantsCount, MIN_DYNAMIC_SOURCES_COUNT);
+        let currentDynamicSourcesLimit = Math.max(this.CurrentSourcesLimit - ParticipantController.RemoteSharesCount - ParticipantController.PinnedParticipantsCount, MIN_DYNAMIC_SOURCES_COUNT);
+        currentDynamicSourcesLimit = Math.min(currentDynamicSourcesLimit, this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit);
         return currentDynamicSourcesLimit;
     }
     get CurrentSourcesLimit() {
         const core = this._vidyoCore;
         if (core.Controllers.AdvancedSettingsController.EnableCompositorFixedParticipants) {
-            return core.Controllers.AdvancedSettingsController.ParticipantLimit + this.CurrentRemoteSharesLimit;
+            return core.Controllers.AdvancedSettingsController.ParticipantLimit + core.Controllers.ParticipantController.RemoteSharesCount;
         }
         {
             return this._currentSourcesLimit;
         }
-    }
-    get CurrentRemoteSharesLimit() {
-        const participantController = this._vidyoCore.Controllers.ParticipantController;
-        return Math.min(participantController.RemoteSharesCount, Constants.MaxRemoteSharesLimit);
-    }
-    get CurrentStaticSourcesLimit() {
-        const participantController = this._vidyoCore.Controllers.ParticipantController;
-        return Math.min(this.CurrentRemoteSharesLimit + participantController.PinnedParticipantsCount, this.CurrentSourcesLimit);
     }
     get DynamicAudioSourcesDisabled() {
         return this._vidyoCore.Controllers.AdvancedSettingsController.DisableDynamicAudioSources;
@@ -17940,11 +16659,13 @@ class ResourcesManager extends BaseController_1.BaseController {
     }
     _calculateNewLimit() {
         if (this._vidyoCore.Controllers.AdvancedSettingsController.EnableCompositorFixedParticipants) {
-            return this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit + this.CurrentRemoteSharesLimit;
+            return this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit +
+                this._vidyoCore.Controllers.ParticipantController.RemoteSharesCount;
         }
         let limit = this._currentSourcesLimit;
         const receiveBitrateAvailable = this._currentAIB;
         const receiveBitrate = this._vidyoCore.Controllers.StatisticsController.CurrentReceiveBitrate;
+        const codecName = this._vidyoCore.Controllers.StatisticsController.GetLocalCameraCodecName() ?? VideoResolution_1.CodecName.VP9;
         const { neededNominalBw, tilesCount } = this._calculateNominalBwForActiveTiles();
         if (receiveBitrateAvailable < neededNominalBw) {
             limit = Math.max(1, Math.min(limit, tilesCount) - 1);
@@ -18016,7 +16737,7 @@ class ResourcesManager extends BaseController_1.BaseController {
         const RESERVE_FOR_APPLICATION = 1;
         const maxSourcesLimit = this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit + RESERVE_FOR_APPLICATION;
         if (limit === 1) {
-            limit += this.CurrentRemoteSharesLimit;
+            limit += this._vidyoCore.Controllers.ParticipantController.RemoteSharesCount;
         }
         const newLimit = Math.min(limit, maxSourcesLimit);
         if (this._currentSourcesLimit !== newLimit) {
@@ -18039,11 +16760,10 @@ class ResourcesManager extends BaseController_1.BaseController {
 }
 exports.ResourcesManager = ResourcesManager;
 
-},{"../../events/AdvancedSettingsEvents":57,"../../events/EventDispatcher":63,"../../events/LogEvents":64,"../../events/ResourcesManagerEvents":71,"../../models/VideoResolution":97,"../../utils/Constants":138,"../BaseController":30}],49:[function(require,module,exports){
+},{"../../events/AdvancedSettingsEvents":55,"../../events/EventDispatcher":61,"../../events/LogEvents":62,"../../events/ResourcesManagerEvents":69,"../../models/VideoResolution":94,"../../utils/Constants":133,"../BaseController":28}],47:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RoomController = exports.CreateRoomResults = void 0;
-const AnalyticsEvents = require("../events/AnalyticsEvents");
 const Errors = require("../utils/Errors");
 const BaseController_1 = require("./BaseController");
 const RoomEvents_1 = require("../events/RoomEvents");
@@ -18137,9 +16857,6 @@ class RoomController extends BaseController_1.BaseController {
     }
     Enter(room) {
         const startConnectingTime = new Date();
-        this._vidyoCore.EventDispatcher.emit(AnalyticsEvents.ClientEvents.JoinConferenceRequest, {
-            conferenceId: (room.RoomId ?? room.Jid).toString()
-        });
         if (room.InRoom) {
             const enterRoomLatency = new Date().getTime() - startConnectingTime.getTime();
             this._vidyoCore.EventDispatcher.emit(RoomEvents_1.Events.Entered, { roomId: room.RoomId, roomJid: room.Jid });
@@ -18188,7 +16905,7 @@ class RoomController extends BaseController_1.BaseController {
 }
 exports.RoomController = RoomController;
 
-},{"../../vidyo_connector_api/VidyoConnector":184,"../../vidyo_simple_api/Room":193,"../events/AnalyticsEvents":58,"../events/ConnectionEvents":61,"../events/EventDispatcher":63,"../events/RoomEvents":72,"../events/StatisticsEvents":73,"../events/StreamEvents":74,"../models/Room":94,"../utils/Errors":142,"./BaseController":30}],50:[function(require,module,exports){
+},{"../../vidyo_connector_api/VidyoConnector":178,"../../vidyo_simple_api/Room":187,"../events/ConnectionEvents":59,"../events/EventDispatcher":61,"../events/RoomEvents":70,"../events/StatisticsEvents":71,"../events/StreamEvents":72,"../models/Room":91,"../utils/Errors":137,"./BaseController":28}],48:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatisticsController = void 0;
@@ -18218,8 +16935,8 @@ const AdvancedSettingsEvents = require("../events/AdvancedSettingsEvents");
 const LogEvents_1 = require("../events/LogEvents");
 const HisteresticValue_1 = require("../utils/HisteresticValue");
 const Devices_1 = require("../../vidyo_simple_api/Devices");
+const VidyoInsightsProvider_1 = require("../utils/VidyoInsightsProvider");
 const AssertExhaustiveSwitch_1 = require("../utils/AssertExhaustiveSwitch");
-const MediaFormat_1 = require("../models/MediaFormat");
 class StatisticsController extends BaseController_1.BaseController {
     constructor() {
         super(...arguments);
@@ -18231,8 +16948,12 @@ class StatisticsController extends BaseController_1.BaseController {
         this._intervalRefreshHandle = null;
         this._intervalResourceManagerStatisticsMeasuring = null;
         this._intervalLogStatsHandle = null;
+        this._intervalSendStatsHandle = null;
+        this._intervalSendStats = Constants.SendClientStatisticsInterval;
+        this._vidyoInsightsProvider = null;
         this._maxPercent = 100;
         this._receiveBytesPrev = 0;
+        this._roomJoinedTimestamp = 0;
         this._sendBytesPrev = 0;
         this._timestampPrev = 0;
         this._isSpeakerSelected = false;
@@ -18244,9 +16965,6 @@ class StatisticsController extends BaseController_1.BaseController {
         this.MAX_AOB_SAMPLE_NUMBER = 4;
         this._decreasingAOBWeights = [0.25, 0.75];
         this._incresingAOBWeights = [0.125, 0.2, 0.3, 0.375];
-        this._onConnected = (payload) => {
-            this.EndpointStatistic.JoinWebTimeConsumedMs = payload.latency;
-        };
     }
     Disable() {
         this._onDisconnected();
@@ -18363,17 +17081,10 @@ class StatisticsController extends BaseController_1.BaseController {
         this._initStatistics();
         this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.StatisticsControllerListeners);
         this._vidyoCore.EventDispatcher
-            .on(ConnectionEvents.Events.Connected, EventDispatcher_1.StatisticsControllerListeners, (data) => this._onConnected(data));
-        this._vidyoCore.EventDispatcher
             .on(ConferenceEvents.Events.ConferenceJoined, EventDispatcher_1.StatisticsControllerListeners, () => this._onConferenceJoined());
         this._vidyoCore.EventDispatcher
             .on(ConnectionEvents.Events.Disconnecting, EventDispatcher_1.StatisticsControllerListeners, () => this._onDisconnected());
-        this._vidyoCore.EventDispatcher
-            .on(ConnectionEvents.Events.EndpointDetailsChanged, EventDispatcher_1.StatisticsControllerListeners, (payload) => this._onEndpointDetailsChanged(payload));
-        this._vidyoCore.EventDispatcher
-            .on(ConnectionEvents.Events.MediaRouteAcquired, EventDispatcher_1.StatisticsControllerListeners, (payload) => this._onMediaRouteAcquired(payload));
-        this._vidyoCore.EventDispatcher
-            .on(ConnectionEvents.Events.MediaRouteConnected, EventDispatcher_1.StatisticsControllerListeners, (payload) => this._onMediaRouteConnected(payload));
+        StatisticsExtension_1.StatisticsExtention.Initialize(this._vidyoCore);
         this._vidyoCore.EventDispatcher
             .on(ParticipantsEvents.Events.ParticipantAddedOrUpdated, EventDispatcher_1.StatisticsControllerListeners, (id) => this._onParticipantAddedOrUpdated(id));
         this._vidyoCore.EventDispatcher
@@ -18384,8 +17095,6 @@ class StatisticsController extends BaseController_1.BaseController {
             .on(ConferenceEvents.Events.SourceRemoved, EventDispatcher_1.StatisticsControllerListeners, (data) => this._onParticipantSourceRemoved(data));
         this._vidyoCore.EventDispatcher
             .on(DeviceEvents.Events.SpeakerSettingsChanged, EventDispatcher_1.StatisticsControllerListeners, (data) => this._onSpeakerSettingsChanged(data));
-        this._vidyoCore.EventDispatcher
-            .on(StatisticsEvents.Events.IceGatheringComplete, EventDispatcher_1.StatisticsControllerListeners, (data) => this._onIceGatheringComplete(data));
         this._vidyoCore.EventDispatcher
             .on(StatisticsEvents.Events.ReceiveBandwidthUpdated, EventDispatcher_1.StatisticsControllerListeners, (data) => this._onReceiveBandwidthUpdated(data));
         this._vidyoCore.EventDispatcher
@@ -18417,22 +17126,18 @@ class StatisticsController extends BaseController_1.BaseController {
             if (!pushURL.match(/http(s)?:\/\//)) {
                 pushURL = 'https://' + pushURL;
             }
-            let intervalSendStats = Constants.SendClientStatisticsInterval;
-            const statsRefreshInterval = this._vidyoCore.Controllers.AdvancedSettingsController.StatisticsRefreshInterval;
-            if (typeof options.pushInterval === 'number') {
-                if (options.pushInterval < statsRefreshInterval) {
-                    this._vidyoCore.Controllers.LogController.LogWarning(() => {
-                        return `Push interval cannot be less than ${statsRefreshInterval}ms. The minimum acceptable value applied`;
-                    });
-                    intervalSendStats = statsRefreshInterval;
-                }
-                else {
-                    intervalSendStats = options.pushInterval;
-                }
+            this._vidyoInsightsProvider = new VidyoInsightsProvider_1.VidyoInsightsProvider(pushURL, options.trackingID);
+            this._intervalSendStats = (typeof options.pushInterval === 'number') ? Math.max(options.pushInterval, 0) : Constants.SendClientStatisticsInterval;
+            if (this._inCall) {
+                this._startSendingToVidyoInsights();
             }
-            return this._vidyoCore.Controllers.AnalyticsController.StartVidyoInsights(pushURL, options.trackingID, intervalSendStats);
         }
-        return this._vidyoCore.Controllers.AnalyticsController.StopVidyoInsights();
+        else {
+            this._stopSendingToVidyoInsights();
+            this._vidyoInsightsProvider = null;
+            this._intervalSendStats = null;
+        }
+        return Promise.resolve(true);
     }
     _clearIntervals() {
         if (this._intervalRefreshHandle !== null) {
@@ -18494,14 +17199,11 @@ class StatisticsController extends BaseController_1.BaseController {
         this.EndpointStatistic.OsName = osInfo.OSName || '';
         this.EndpointStatistic.OsVersion = osInfo.OSVersion || '';
         this.EndpointStatistic.UserAgent = OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.UserAgent;
-        StatisticsExtension_1.StatisticsExtention.Initialize(this._vidyoCore);
-        StatisticsExtension_1.StatisticsExtention.supplementClientStatistics();
     }
     _onConferenceJoined() {
         if (!this._vidyoCore.Controllers.AdvancedSettingsController.DisableStats) {
+            this._roomJoinedTimestamp = Date.now();
             this.RoomStatistics.CallId = StringUtils_1.default.generateRandomString();
-            this.RoomStatistics.MaxVideoSources = this._vidyoCore.Controllers.ResourcesManager.CurrentDynamicSourcesLimit;
-            this.RoomStatistics.StaticSources = this._vidyoCore.Controllers.ResourcesManager.CurrentStaticSourcesLimit;
             this._clearIntervals();
             this._inCall = true;
             this._setUpdateStatisticsCall();
@@ -18511,6 +17213,7 @@ class StatisticsController extends BaseController_1.BaseController {
                 .Interval(Constants.ResourceManagerStatisticsMeasuringInterval, () => {
                 this._onResourceManagerStatisticsUpdate();
             });
+            this._startSendingToVidyoInsights();
         }
     }
     _onDisconnected() {
@@ -18520,15 +17223,9 @@ class StatisticsController extends BaseController_1.BaseController {
         this.TransportInformation = [];
         this.UserStatistic = new Statistics_1.UserStatistics();
         this._initStatistics();
+        StatisticsExtension_1.StatisticsExtention.Initialize(this._vidyoCore);
+        this._stopSendingToVidyoInsights();
         this._clearIntervals();
-        this._lastStats = null;
-    }
-    _onEndpointDetailsChanged(payload) {
-        this.EndpointStatistic.ApplicationName = payload.applicationName ?? '';
-        this.EndpointStatistic.ApplicationVersion = payload.applicationVersion ?? '';
-    }
-    _onIceGatheringComplete(payload) {
-        this.EndpointStatistic.IceGatheringTimeConsumedMs = payload.latency;
     }
     _onLocalTracksSSRCsChanged() {
         const currentSSRCs = this._vidyoCore.Controllers.TransmittedStreamController.GetTracksSSRCs();
@@ -18591,8 +17288,6 @@ class StatisticsController extends BaseController_1.BaseController {
                         const localWindowShareStats = new Statistics_1.LocalVideoSourceStatistics();
                         localWindowShareStats.Id = currentSSRCsKey;
                         localWindowShareStats.TrackType = SimplifiedVidyoCore_1.TrackType.WindowShare;
-                        localWindowShareStats.Format = MediaFormat_1.VidyoMediaFormat.VIDYO_MEDIAFORMAT_NULL;
-                        localWindowShareStats.Name = `${localWindowShareStats.TrackType}_${currentSSRCsKey}`;
                         const roWindowShareTrack = this._vidyoCore.Controllers.LocalStreamController.WindowShareStream.GetVideoTracks()[0];
                         localWindowShareStats.FillFromTrack(roWindowShareTrack);
                         this.EndpointStatistic.LocalWindowShareStats.push(localWindowShareStats);
@@ -18601,8 +17296,6 @@ class StatisticsController extends BaseController_1.BaseController {
                         const localMonitorShareStats = new Statistics_1.LocalVideoSourceStatistics();
                         localMonitorShareStats.Id = currentSSRCsKey;
                         localMonitorShareStats.TrackType = SimplifiedVidyoCore_1.TrackType.Monitor;
-                        localMonitorShareStats.Format = MediaFormat_1.VidyoMediaFormat.VIDYO_MEDIAFORMAT_NULL;
-                        localMonitorShareStats.Name = `${localMonitorShareStats.TrackType}_${currentSSRCsKey}`;
                         const roMonitorTrack = this._vidyoCore.Controllers.LocalStreamController.MonitorShareStream.GetVideoTracks()[0];
                         localMonitorShareStats.FillFromTrack(roMonitorTrack);
                         this.EndpointStatistic.LocalMonitorStats.push(localMonitorShareStats);
@@ -18613,12 +17306,6 @@ class StatisticsController extends BaseController_1.BaseController {
                 }
             }
         }
-    }
-    _onMediaRouteAcquired(payload) {
-        this.EndpointStatistic.MediaRouteAcquireTimeConsumedMs = payload.latency;
-    }
-    _onMediaRouteConnected(payload) {
-        this.EndpointStatistic.MediaRouteConnectionTimeConsumedMs = payload.latency;
     }
     _onParticipantAddedOrUpdated(id) {
         let participant = this._vidyoCore.Controllers.ParticipantController.TryGetParticipant(id);
@@ -18761,17 +17448,11 @@ class StatisticsController extends BaseController_1.BaseController {
             this._bytesReceived += candidatePairStats.bytesReceived || 0;
             if (this.RoomStatistics.SendBitRateAvailable > 0) {
                 this.RoomStatistics.AvailableEncodeBwPercent =
-                    this._maxPercent - Math.round((this.RoomStatistics.SendBitRateTotal * this._maxPercent) / this.RoomStatistics.SendBitRateAvailable);
-            }
-            else {
-                this.RoomStatistics.AvailableEncodeBwPercent = this._maxPercent;
+                    Math.round((this.RoomStatistics.SendBitRateTotal * this._maxPercent) / this.RoomStatistics.SendBitRateAvailable);
             }
             if (this.RoomStatistics.ReceiveBitRateAvailable > 0) {
                 this.RoomStatistics.AvailableDecodeBwPercent =
-                    this._maxPercent - Math.round((this.RoomStatistics.ReceiveBitRateTotal * this._maxPercent) / this.RoomStatistics.ReceiveBitRateAvailable);
-            }
-            else {
-                this.RoomStatistics.AvailableDecodeBwPercent = this._maxPercent;
+                    Math.round((this.RoomStatistics.ReceiveBitRateTotal * this._maxPercent) / this.RoomStatistics.ReceiveBitRateAvailable);
             }
             this.TransportInformation.push(connectionInfo);
         });
@@ -18817,9 +17498,29 @@ class StatisticsController extends BaseController_1.BaseController {
             return this._dotProduct(this._incresingAOBWeights, this._availableOutgoingBandwidthCache);
         }
     }
+    _sendClientStatistic(sendStatsProvider) {
+        this._updateEndpointStatistics();
+        const stats = new Stats_1.EndpointStats(this.EndpointStatistic);
+        this._vidyoCore.Controllers.ConnectionController.SendClientStats(sendStatsProvider, stats);
+    }
     _setUpdateStatisticsCall() {
         if (this._inCall && !this._vidyoCore.Controllers.AdvancedSettingsController.DisableStats) {
             this._intervalRefreshHandle = setTimeout(() => this._updateStatistics(), this._vidyoCore.Controllers.AdvancedSettingsController.StatisticsRefreshInterval);
+        }
+    }
+    _startSendingToVidyoInsights() {
+        this._stopSendingToVidyoInsights();
+        if (this._vidyoInsightsProvider) {
+            this._vidyoCore.Controllers.LogController.LogInfo(() => `Start sending client stats with interval ${this._intervalSendStats}ms`);
+            this._intervalSendStatsHandle = TimingProvider_1.TimingProvider
+                .Interval(this._intervalSendStats, () => this._sendClientStatistic(this._vidyoInsightsProvider), true);
+        }
+    }
+    _stopSendingToVidyoInsights() {
+        if (this._intervalSendStatsHandle) {
+            TimingProvider_1.TimingProvider.ClearInterval(this._intervalSendStatsHandle);
+            this._vidyoCore.Controllers.LogController.LogInfo(() => 'Stop sending client stats');
+            this._intervalSendStatsHandle = null;
         }
     }
     _updateLocalTracksStats(stats) {
@@ -18865,34 +17566,20 @@ class StatisticsController extends BaseController_1.BaseController {
                 }
             }
         });
-        [...this.EndpointStatistic.LocalMonitorStats,
-            ...this.EndpointStatistic.LocalWindowShareStats
-        ].forEach((localVideoSourceStatistics) => {
-            const localTrack = this._vidyoCore.Controllers.LocalStreamController.GetTransmittedTrack(localVideoSourceStatistics.TrackType);
-            const remoteRendererStreamStats = new Statistics_1.RemoteRendererStreamStatistics(localVideoSourceStatistics.Id, stats, this._lastStats);
-            remoteRendererStreamStats.LastWidth = localVideoSourceStatistics.RemoteRendererStreams[0]?.Width ?? 0;
-            remoteRendererStreamStats.LastHeight = localVideoSourceStatistics.RemoteRendererStreams[0]?.Height ?? 0;
-            if (localTrack) {
-                const requestedShowParameters = this._vidyoCore.Controllers.TransmittedStreamController.GetLocalSourceRequestedShowParameters(localTrack.id);
-                if (requestedShowParameters) {
-                    remoteRendererStreamStats.FillFromShowParameters(requestedShowParameters);
-                }
-            }
-            localVideoSourceStatistics.RemoteRendererStreams = [remoteRendererStreamStats];
-        });
         this.EndpointStatistic.LocalCameraStats.forEach((localCameraStatistics) => {
             localCameraStatistics.RemoteRendererStreams = this._vidyoCore.Controllers.TransmittedStreamController.VideoRids.map((id, i) => {
                 const localTrack = this._vidyoCore.Controllers.LocalStreamController.GetTransmittedTrack(SimplifiedVidyoCore_1.TrackType.Camera);
                 const remoteRendererStreamStats = new Statistics_1.RemoteRendererStreamStatistics(id, stats, this._lastStats);
                 remoteRendererStreamStats.LastWidth = localCameraStatistics.RemoteRendererStreams[i]?.Width;
                 remoteRendererStreamStats.LastHeight = localCameraStatistics.RemoteRendererStreams[i]?.Height;
-                remoteRendererStreamStats.CodecName = localCameraStatistics.CodecName ?? '';
-                remoteRendererStreamStats.Name = localCameraStatistics.Name ?? '';
+                remoteRendererStreamStats.CodecName = this.GetLocalCameraCodecName() || '';
+                remoteRendererStreamStats.Name = localCameraStatistics.Name || '';
                 if (localTrack) {
                     const requestedShowParameters = this._vidyoCore.Controllers.TransmittedStreamController.GetLocalSourceRequestedShowParameters(localTrack.id);
-                    if (requestedShowParameters) {
-                        remoteRendererStreamStats.FillFromShowParameters(requestedShowParameters);
-                    }
+                    remoteRendererStreamStats.BitRateRequested = Number(requestedShowParameters.bandwidth);
+                    remoteRendererStreamStats.FpsRequested = Number(requestedShowParameters.framerate);
+                    remoteRendererStreamStats.WidthRequested = Number(requestedShowParameters.width);
+                    remoteRendererStreamStats.HeightRequested = Number(requestedShowParameters.height);
                 }
                 return remoteRendererStreamStats;
             });
@@ -18977,8 +17664,6 @@ class StatisticsController extends BaseController_1.BaseController {
         let timestamp = 0;
         this.TransportInformation.length = 0;
         this.EndpointStatistic.EmptyBytesCountStatistic();
-        this.RoomStatistics.MaxVideoSources = this._vidyoCore.Controllers.ResourcesManager.CurrentDynamicSourcesLimit;
-        this.RoomStatistics.StaticSources = this._vidyoCore.Controllers.ResourcesManager.CurrentStaticSourcesLimit;
         this._vidyoCore.HunterProvider.GetStats().then((stats) => {
             this._bytesSent = 0;
             this._bytesReceived = 0;
@@ -19003,6 +17688,7 @@ class StatisticsController extends BaseController_1.BaseController {
         });
     }
     _logCallQuality(sourceName, localVideoSourceStatistics) {
+        localVideoSourceStatistics.FillFromRTCStats(this._lastStats);
         let strToLog = '\n';
         if (localVideoSourceStatistics.QualityLimitationDurations) {
             const lastDurations = localVideoSourceStatistics.QualityLimitationDurations;
@@ -19042,7 +17728,7 @@ class StatisticsController extends BaseController_1.BaseController {
 }
 exports.StatisticsController = StatisticsController;
 
-},{"../../vidyo_simple_api/Devices":187,"../../vidyo_simple_api/stats/Stats":219,"../SimplifiedVidyoCore":24,"../events/AdvancedSettingsEvents":57,"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/DeviceEvents":62,"../events/EventDispatcher":63,"../events/LogEvents":64,"../events/ParticipantEvents":68,"../events/StatisticsEvents":73,"../events/StreamEvents":74,"../models/MediaFormat":88,"../models/Source":95,"../models/device/Microphone":105,"../models/device/Speaker":106,"../models/statistics/Statistics":130,"../utils/AssertExhaustiveSwitch":134,"../utils/Constants":138,"../utils/HisteresticValue":146,"../utils/ObjectUtils":155,"../utils/OperatingSystemInfoProvider":156,"../utils/RTCStatsReportHelper":160,"../utils/StatisticsExtension":165,"../utils/StringUtils":166,"../utils/TimingProvider":168,"./BaseController":30}],51:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../../vidyo_simple_api/stats/Stats":213,"../SimplifiedVidyoCore":23,"../events/AdvancedSettingsEvents":55,"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/DeviceEvents":60,"../events/EventDispatcher":61,"../events/LogEvents":62,"../events/ParticipantEvents":66,"../events/StatisticsEvents":71,"../events/StreamEvents":72,"../models/Source":92,"../models/device/Microphone":99,"../models/device/Speaker":100,"../models/statistics/Statistics":125,"../utils/AssertExhaustiveSwitch":129,"../utils/Constants":133,"../utils/HisteresticValue":141,"../utils/ObjectUtils":150,"../utils/OperatingSystemInfoProvider":151,"../utils/RTCStatsReportHelper":155,"../utils/StatisticsExtension":160,"../utils/StringUtils":161,"../utils/TimingProvider":163,"../utils/VidyoInsightsProvider":168,"./BaseController":28}],49:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalStreamController = exports.TrackType = void 0;
@@ -19065,7 +17751,6 @@ const StringUtils_1 = require("../../utils/StringUtils");
 const Permission_1 = require("../../../vidyo_simple_api/Permission");
 const ConnectionEvents = require("../../events/ConnectionEvents");
 const VideoResolution_1 = require("../../models/VideoResolution");
-const Camera_1 = require("../../models/device/Camera");
 const Microphone_1 = require("../../models/device/Microphone");
 const RenderEvents = require("../../events/RenderEvents");
 const LogEvents_1 = require("../../events/LogEvents");
@@ -19073,7 +17758,6 @@ const RunnelsHelper = require("../../utils/SimulcastRunnelsHelper");
 const SimulcastRunnelsHelper_1 = require("../../utils/SimulcastRunnelsHelper");
 const Participant_1 = require("../../models/Participant");
 const ScreenInfoProvider_1 = require("../../utils/ScreenInfoProvider");
-const Devices_1 = require("../../../vidyo_simple_api/Devices");
 const AssertExhaustiveSwitch_1 = require("../../utils/AssertExhaustiveSwitch");
 const DtmfPlayer_1 = require("../../utils/DtmfPlayer");
 var TrackType;
@@ -19094,7 +17778,12 @@ class LocalVideoStreamConstraints {
         this.runnels = {};
         this.bandwidth = undefined;
         this.maxBandwidth = LocalVideoStreamConstraints.MAX_BITRATE_PER_STREAM;
-        this.constraints = this.DefaultConstraints;
+        const constraints = {
+            width: this.DEFAULT_WIDTH,
+            height: this.DEFAULT_HEIGHT,
+            frameRate: this.DEFAULT_FRAMERATE
+        };
+        this.constraints = constraints;
         this.minConstraints = {
             width: Constants.MinimumLocalStreamWidth,
             height: Constants.MinimumLocalStreamHeight
@@ -19135,7 +17824,7 @@ class LocalVideoStreamConstraints {
     }
     set MaxConstraints(constraints) {
         if (constraints) {
-            this.constraints = Object.assign(this.DefaultConstraints, constraints);
+            this.constraints = constraints;
             for (let key in constraints) {
                 if (this.minConstraints[key]) {
                     this.constraints[key] = Math.max(this.constraints[key], this.minConstraints[key]);
@@ -19145,7 +17834,10 @@ class LocalVideoStreamConstraints {
         }
         else {
             this.maxConstraints = constraints;
-            this.constraints = this.DefaultConstraints;
+            this.constraints = {
+                width: this.DEFAULT_WIDTH,
+                height: this.DEFAULT_HEIGHT
+            };
         }
     }
     get MaxConstraints() {
@@ -19164,13 +17856,6 @@ class LocalVideoStreamConstraints {
             }
         }
         return this.getConstraintsWithAspectRatio(constraints);
-    }
-    get DefaultConstraints() {
-        return {
-            width: this.DEFAULT_WIDTH,
-            height: this.DEFAULT_HEIGHT,
-            frameRate: this.DEFAULT_FRAMERATE
-        };
     }
     MaxPreferredBandwidth(codecName) {
         return this.getBandwidth(false, codecName);
@@ -19265,9 +17950,6 @@ class LocalStreamController extends BaseController_1.BaseController {
     get MicrophoneAudioStrem() {
         return new ReadOnlyMediaStream_1.ReadOnlyMediaStream(this._localStreamsMap[TrackType.Microphone]);
     }
-    get AudioContentStream() {
-        return new ReadOnlyMediaStream_1.ReadOnlyMediaStream(this._localStreamsMap[TrackType.AudioContent]);
-    }
     set aobRampUp(rampUp) {
         const AOBRampUpTimeout = 10000;
         if (rampUp) {
@@ -19348,20 +18030,6 @@ class LocalStreamController extends BaseController_1.BaseController {
     }
     GetDtmfPlayer(trackId) {
         return this._dtmfPlayersMap[trackId];
-    }
-    GetLocalAudioTrackSettings(trackId) {
-        const dtmfPlayer = this.GetDtmfPlayer(trackId);
-        if (dtmfPlayer?.OriginalTrack) {
-            return dtmfPlayer.OriginalTrack.getSettings();
-        }
-        const tracks = [
-            ...this._localStreamsMap[TrackType.Microphone].getAudioTracks(),
-            ...this._localStreamsMap[TrackType.AudioContent].getAudioTracks(),
-        ];
-        const track = tracks.find((track) => track.id === trackId);
-        if (track) {
-            return track.getSettings();
-        }
     }
     GetTransmittedTrackSettings(trackId) {
         const dtmfPlayer = this.GetDtmfPlayer(trackId);
@@ -19537,7 +18205,7 @@ class LocalStreamController extends BaseController_1.BaseController {
             this._insertDtmfToMicrophone(dtmfTone, duration);
         }
         if (this._remoteSpeakerAudioTracks[microphoneId]) {
-            const track = this._remoteSpeakerAudioTracks[microphoneId]?.[this._transmittedStream.id];
+            const track = this._remoteSpeakerAudioTracks[microphoneId];
             const result = this._insertDtmfTone(track.id, dtmfTone, duration);
             if (result) {
                 this._vidyoCore.Controllers.LogController.LogInfo(() => {
@@ -19546,15 +18214,6 @@ class LocalStreamController extends BaseController_1.BaseController {
             }
         }
         return Promise.resolve();
-    }
-    IsAudioEnabled() {
-        const remoteSpeakerLocalAudioTracks = Object.values(this._remoteSpeakerAudioTracks).map((tracks) => {
-            return tracks[this._localStreamsMap.Microphone.id];
-        });
-        return remoteSpeakerLocalAudioTracks.some((track) => track.enabled && !track.muted)
-            || this.AudioContentStream.GetAudioTracks().some((track) => track.IsActive())
-            || this.MicrophoneAudioStrem.GetAudioTracks().some((track) => track.IsActive())
-                && !this._vidyoCore.Controllers.DeviceController.GetAudioMuteState();
     }
     IsMicrophoneAddedToRemoteSpeaker(microphone) {
         return this._checkMicrophoneAddedToRemoteSpeaker(microphone);
@@ -19633,7 +18292,6 @@ class LocalStreamController extends BaseController_1.BaseController {
                 this._updateLocalTracksBandwidth();
                 this._streamEventHelper.AttachStreamEvents(this.CameraVideoStream);
                 this._streamEventHelper.AttachStreamEvents(this.MicrophoneAudioStrem);
-                this._streamEventHelper.AttachStreamEvents(this.AudioContentStream);
                 this._streamEventHelper.AttachStreamEvents(this.WindowShareStream);
                 this._streamEventHelper.AttachStreamEvents(this.MonitorShareStream);
                 this._vidyoCore.EventDispatcher.emit(StreamEvents.Events.LocalStreamReady);
@@ -19826,7 +18484,7 @@ class LocalStreamController extends BaseController_1.BaseController {
             this.updateRunnels(sourceView, trackId, codecName);
         }
         else {
-            this._vidyoCore.Controllers.LogController.LogInfo(() => `codecName is not available yet`);
+            this._vidyoCore.Controllers.LogController.LogWarning(() => `codecName is undefined`);
         }
         this._checkTracksBandwidthAgainstAOB();
     }
@@ -19935,17 +18593,11 @@ class LocalStreamController extends BaseController_1.BaseController {
         return this._localCameraRestricted;
     }
     _addRemoteSpeakerAudioTrackToStream(track, microphoneId) {
-        const clonedTrack = track.clone();
-        this._remoteSpeakerAudioTracks[microphoneId] = {
-            [this._localStreamsMap.Microphone.id]: track,
-            [this._transmittedStream.id]: clonedTrack,
-        };
-        this._localStreamsMap.Microphone.addTrack(track);
-        this._localStreamsMap.Microphone.dispatchEvent(new Event('addtrack'));
-        this._transmittedStream.addTrack(clonedTrack);
-        this._transmittedStream.dispatchEvent(new Event('addtrack'));
-        if (this._dtmfPlayersMap[track.id]) {
-            this._dtmfPlayersMap[clonedTrack.id] = this._dtmfPlayersMap[track.id];
+        const targetStreams = [this._localStreamsMap.Microphone, this._transmittedStream];
+        for (let stream of targetStreams) {
+            this._remoteSpeakerAudioTracks[microphoneId] = track;
+            stream.addTrack(track);
+            stream.dispatchEvent(new Event('addtrack'));
         }
         setTimeout(() => void this._updateLocalTracksBandwidth());
     }
@@ -20110,7 +18762,7 @@ class LocalStreamController extends BaseController_1.BaseController {
                 this._vidyoCore.Controllers.LogController.LogInfo(() => {
                     return `Connecting microphone ${microphoneId} to DTMF player`;
                 });
-                const microphoneTrack = this._remoteSpeakerAudioTracks[microphoneId]?.[this._transmittedStream.id];
+                const microphoneTrack = this._remoteSpeakerAudioTracks[microphoneId];
                 const microphoneStream = new MediaStream([microphoneTrack.clone()]);
                 const stream = this._connectToDtmfPlayer(microphoneStream);
                 const [track] = stream.getAudioTracks();
@@ -20127,7 +18779,7 @@ class LocalStreamController extends BaseController_1.BaseController {
                 this._disconnectTrackFromDtmfPlayer(TrackType.Microphone);
             }
             for (let microphoneId in this._remoteSpeakerAudioTracks) {
-                const microphoneTrack = this._remoteSpeakerAudioTracks[microphoneId]?.[this._transmittedStream.id];
+                const microphoneTrack = this._remoteSpeakerAudioTracks[microphoneId];
                 const dtmfPlayer = this.GetDtmfPlayer(microphoneTrack.id);
                 if (dtmfPlayer) {
                     this._vidyoCore.Controllers.LogController.LogInfo(() => {
@@ -20167,7 +18819,7 @@ class LocalStreamController extends BaseController_1.BaseController {
     }
     _removeRemoteSpeakerAudioTrackFromStream(microphoneId) {
         for (let stream of [this._localStreamsMap.Microphone, this._transmittedStream]) {
-            const track = this._remoteSpeakerAudioTracks[microphoneId]?.[stream.id];
+            const track = this._remoteSpeakerAudioTracks[microphoneId];
             if (track) {
                 this._deleteDtmfPlayer(track.id);
                 stream.removeTrack(track);
@@ -20195,7 +18847,7 @@ class LocalStreamController extends BaseController_1.BaseController {
     }
     _setAudioMutedState() {
         const isMuted = this._vidyoCore.Controllers.DeviceController.GetAudioMuteState();
-        if (this._vidyoCore.HunterProvider.IsMediaSessionInited) {
+        if (this._vidyoCore.Controllers.CallStateController.MediaState.ShouldTransmitMedia) {
             this._vidyoCore.HunterProvider.MuteAudio(isMuted);
         }
         else {
@@ -20317,25 +18969,7 @@ class LocalStreamController extends BaseController_1.BaseController {
                 }
             }
             let constraints = this._constraintsMap.Camera.CurrentConstraints;
-            return this._startTrack(TrackType.Camera, () => this._userMediaProvider.GetVideoTrack(camera || true, constraints))
-                .then(() => {
-                if (camera instanceof Camera_1.Camera) {
-                    this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.CameraStateUpdated, {
-                        camera,
-                        state: Devices_1.VidyoDeviceState.Started
-                    });
-                }
-            })
-                .catch((err) => {
-                if (camera instanceof Camera_1.Camera) {
-                    this._vidyoCore.EventDispatcher.emit(DeviceEvents.Events.CameraStateUpdated, {
-                        camera,
-                        state: err.name === 'OverconstrainedError'
-                            ? Devices_1.VidyoDeviceState.ConfigureError
-                            : Devices_1.VidyoDeviceState.Error
-                    });
-                }
-            });
+            return this._startTrack(TrackType.Camera, () => this._userMediaProvider.GetVideoTrack(camera || true, constraints));
         });
     }
     _startVideoContentShare(camera) {
@@ -20387,14 +19021,11 @@ class LocalStreamController extends BaseController_1.BaseController {
                 this._trackToMediaTypeMap[track.id] = { trackType: trackType, trackMediaType };
             }
         }
-        for (let tracks of Object.values(this._remoteSpeakerAudioTracks)) {
-            const track = tracks[streamId];
-            if (track) {
-                this._trackToMediaTypeMap[track.id] = {
-                    trackMediaType: TrackMetaDataProvider_1.MediaTrackType.Audio,
-                    trackType: TrackType.Microphone
-                };
-            }
+        for (let track of Object.values(this._remoteSpeakerAudioTracks)) {
+            this._trackToMediaTypeMap[track.id] = {
+                trackMediaType: TrackMetaDataProvider_1.MediaTrackType.Audio,
+                trackType: TrackType.Microphone
+            };
         }
     }
     _updateLocalTracksBandwidth() {
@@ -20644,7 +19275,7 @@ class LocalStreamController extends BaseController_1.BaseController {
 exports.LocalStreamController = LocalStreamController;
 LocalStreamController.MINIMUM_VIDEO_BANDWIDTH = 100000;
 
-},{"../../../vidyo_simple_api/Devices":187,"../../../vidyo_simple_api/Permission":192,"../../events/AdvancedSettingsEvents":57,"../../events/CallStateEvents":59,"../../events/ConnectionEvents":61,"../../events/DeviceEvents":62,"../../events/EventDispatcher":63,"../../events/LogEvents":64,"../../events/ModerationEvents":67,"../../events/RenderEvents":70,"../../events/StreamEvents":74,"../../models/Participant":90,"../../models/VideoResolution":97,"../../models/device/Camera":101,"../../models/device/Microphone":105,"../../models/stream/ReadOnlyMediaStream":132,"../../utils/AssertExhaustiveSwitch":134,"../../utils/Constants":138,"../../utils/DtmfPlayer":140,"../../utils/Messages":152,"../../utils/OperatingSystemInfoProvider":156,"../../utils/ScreenInfoProvider":162,"../../utils/SimulcastRunnelsHelper":163,"../../utils/StringUtils":166,"../../utils/UserMediaProvider":170,"../BaseController":30,"./StreamEventHelper":53,"./TrackMetaDataProvider":54,"async":2}],52:[function(require,module,exports){
+},{"../../../vidyo_simple_api/Permission":186,"../../events/AdvancedSettingsEvents":55,"../../events/CallStateEvents":57,"../../events/ConnectionEvents":59,"../../events/DeviceEvents":60,"../../events/EventDispatcher":61,"../../events/LogEvents":62,"../../events/ModerationEvents":65,"../../events/RenderEvents":68,"../../events/StreamEvents":72,"../../models/Participant":88,"../../models/VideoResolution":94,"../../models/device/Microphone":99,"../../models/stream/ReadOnlyMediaStream":127,"../../utils/AssertExhaustiveSwitch":129,"../../utils/Constants":133,"../../utils/DtmfPlayer":135,"../../utils/Messages":147,"../../utils/OperatingSystemInfoProvider":151,"../../utils/ScreenInfoProvider":157,"../../utils/SimulcastRunnelsHelper":158,"../../utils/StringUtils":161,"../../utils/UserMediaProvider":165,"../BaseController":28,"./StreamEventHelper":51,"./TrackMetaDataProvider":52,"async":2}],50:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteStreamController = void 0;
@@ -20932,7 +19563,7 @@ class RemoteStreamController extends BaseController_1.BaseController {
 }
 exports.RemoteStreamController = RemoteStreamController;
 
-},{"../../events/ConferenceEvents":60,"../../events/ConnectionEvents":61,"../../events/EventDispatcher":63,"../../events/LogEvents":64,"../../events/ParticipantEvents":68,"../../events/StreamEvents":74,"../../models/Source":95,"../../models/stream/ReadOnlyMediaStream":132,"../../utils/AssertExhaustiveSwitch":134,"../../utils/Messages":152,"../../utils/StringUtils":166,"../BaseController":30,"./StreamEventHelper":53,"./TrackMetaDataProvider":54}],53:[function(require,module,exports){
+},{"../../events/ConferenceEvents":58,"../../events/ConnectionEvents":59,"../../events/EventDispatcher":61,"../../events/LogEvents":62,"../../events/ParticipantEvents":66,"../../events/StreamEvents":72,"../../models/Source":92,"../../models/stream/ReadOnlyMediaStream":127,"../../utils/AssertExhaustiveSwitch":129,"../../utils/Messages":147,"../../utils/StringUtils":161,"../BaseController":28,"./StreamEventHelper":51,"./TrackMetaDataProvider":52}],51:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StreamEventHelper = void 0;
@@ -20956,7 +19587,7 @@ class StreamEventHelper {
 }
 exports.StreamEventHelper = StreamEventHelper;
 
-},{"../../events/StreamEvents":74}],54:[function(require,module,exports){
+},{"../../events/StreamEvents":72}],52:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaTrackType = exports.UnknownMediaTrackType = void 0;
@@ -20964,7 +19595,7 @@ const Source_1 = require("../../models/Source");
 exports.UnknownMediaTrackType = 'unknown';
 exports.MediaTrackType = Source_1.SourceMediaType;
 
-},{"../../models/Source":95}],55:[function(require,module,exports){
+},{"../../models/Source":92}],53:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransmittedStreamController = void 0;
@@ -21287,7 +19918,7 @@ class TransmittedStreamController extends BaseController_1.BaseController {
 }
 exports.TransmittedStreamController = TransmittedStreamController;
 
-},{"../../../vidyo_simple_api/Devices":187,"../../events/CallStateEvents":59,"../../events/EventDispatcher":63,"../../events/ModerationEvents":67,"../../events/StatisticsEvents":73,"../../events/StreamEvents":74,"../../models/VideoResolution":97,"../../utils/Constants":138,"../../utils/NotEqual":153,"../../utils/ObjectUtils":155,"../BaseController":30,"./TrackMetaDataProvider":54}],56:[function(require,module,exports){
+},{"../../../vidyo_simple_api/Devices":181,"../../events/CallStateEvents":57,"../../events/EventDispatcher":61,"../../events/ModerationEvents":65,"../../events/StatisticsEvents":71,"../../events/StreamEvents":72,"../../models/VideoResolution":94,"../../utils/Constants":133,"../../utils/NotEqual":148,"../../utils/ObjectUtils":150,"../BaseController":28,"./TrackMetaDataProvider":52}],54:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserController = void 0;
@@ -21313,7 +19944,7 @@ class UserController extends BaseController_1.BaseController {
 }
 exports.UserController = UserController;
 
-},{"../models/User":96,"./BaseController":30}],57:[function(require,module,exports){
+},{"../models/User":93,"./BaseController":28}],55:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21347,45 +19978,33 @@ class EventList extends EventListFactory_1.EventListBase {
         this.DisableMobileParticipantLimitRestrictionsChanged = new EventListFactory_1.EventDescriptor();
         this.DisableTabletParticipantLimitRestrictionsChanged = new EventListFactory_1.EventDescriptor();
         this.PinnedParticipantDisplayCroppedChanged = new EventListFactory_1.EventDescriptor();
-        this.OnGoogleAnalyticsEventSentChanged = new EventListFactory_1.EventDescriptor();
+        this.OnAnalyticsEventSentChanged = new EventListFactory_1.EventDescriptor();
         this.ReconnectBackoffChanged = new EventListFactory_1.EventDescriptor();
         this.ShowStatisticsOverlayChanged = new EventListFactory_1.EventDescriptor();
         this.StatisticsRefreshIntervalChanged = new EventListFactory_1.EventDescriptor();
-        this.AudioContentHintChanged = new EventListFactory_1.EventDescriptor();
         this.CameraContentHintChanged = new EventListFactory_1.EventDescriptor();
         this.WindowShareContentHintChanged = new EventListFactory_1.EventDescriptor();
-        this.GeolocationServiceURLChanged = new EventListFactory_1.EventDescriptor();
-        this.EnableGeolocationChanged = new EventListFactory_1.EventDescriptor();
     }
 }
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('AdvancedSettings', EventList);
 
-},{"../utils/EventListFactory":143}],58:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],56:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ClientEvents = exports.ClientEventList = exports.Events = exports.EventList = void 0;
+exports.Events = exports.EventList = void 0;
 const EventListFactory_1 = require("../utils/EventListFactory");
 class EventList extends EventListFactory_1.EventListBase {
     constructor() {
         super(...arguments);
-        this.GoogleAnalyticsEventSent = new EventListFactory_1.EventDescriptor();
+        this.AnalyticsEventSent = new EventListFactory_1.EventDescriptor();
         this.CreateView = new EventListFactory_1.EventDescriptor();
     }
 }
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Analytics', EventList);
-class ClientEventList extends EventListFactory_1.EventListBase {
-    constructor() {
-        super(...arguments);
-        this.DeviceChanged = new EventListFactory_1.EventDescriptor();
-        this.JoinConferenceRequest = new EventListFactory_1.EventDescriptor();
-    }
-}
-exports.ClientEventList = ClientEventList;
-exports.ClientEvents = (0, EventListFactory_1.CreateEventList)('Analytics::ClientEvent', ClientEventList);
 
-},{"../utils/EventListFactory":143}],59:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],57:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21399,7 +20018,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('CallState', EventList);
 
-},{"../utils/EventListFactory":143}],60:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],58:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21427,7 +20046,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Conference', EventList);
 
-},{"../utils/EventListFactory":143}],61:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],59:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = exports.ConnectionEventsInfo = exports.VidyoEventInfo = void 0;
@@ -21483,7 +20102,6 @@ class EventList extends EventListFactory_1.EventListBase {
         this.ConferenceLost = new EventListFactory_1.EventDescriptor();
         this.Connected = new EventListFactory_1.EventDescriptor();
         this.ConnectionStatusChanged = new EventListFactory_1.EventDescriptor();
-        this.EndpointDetailsChanged = new EventListFactory_1.EventDescriptor();
         this.Disconnected = new EventListFactory_1.EventDescriptor();
         this.Disconnecting = new EventListFactory_1.EventDescriptor();
         this.JingleAccepted = new EventListFactory_1.EventDescriptor();
@@ -21491,8 +20109,6 @@ class EventList extends EventListFactory_1.EventListBase {
         this.JingleRemoteStreamRemoved = new EventListFactory_1.EventDescriptor();
         this.JingleSourceView = new EventListFactory_1.EventDescriptor();
         this.MediaConf = new EventListFactory_1.EventDescriptor();
-        this.MediaRouteAcquired = new EventListFactory_1.EventDescriptor();
-        this.MediaRouteConnected = new EventListFactory_1.EventDescriptor();
         this.MediaSessionEnded = new EventListFactory_1.EventDescriptor();
         this.MediaSessionFailed = new EventListFactory_1.EventDescriptor();
         this.MediaSessionStarted = new EventListFactory_1.EventDescriptor();
@@ -21505,7 +20121,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Connection', EventList);
 
-},{"../../vidyo_connector_api/VidyoConnector":184,"../utils/EventListFactory":143,"../utils/Messages":152}],62:[function(require,module,exports){
+},{"../../vidyo_connector_api/VidyoConnector":178,"../utils/EventListFactory":138,"../utils/Messages":147}],60:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21544,15 +20160,14 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Device', EventList);
 
-},{"../utils/EventListFactory":143}],63:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],61:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VidyoRoomRecorderInCallEventListeners = exports.VidyoRoomParticipantEventListeners = exports.VidyoResourceManagerEventListeners = exports.VidyoRemoteWindowShareEventListeners = exports.VidyoRemoteMicrophoneEventListeners = exports.VidyoRemoteCameraEventListeners = exports.VidyoReconnectEventListeners = exports.VidyoRaiseHandEventListeners = exports.VidyoPermissionEventListeners = exports.VidyoLocalWindowShareEventListeners = exports.VidyoRemoteSpeakerEventListeners = exports.VidyoLocalSpeakerEventListeners = exports.VidyoLocalMonitorEventListeners = exports.VidyoLocalMicrophoneEventListeners = exports.VidyoModerationEventListeners = exports.VidyoLectureModeEventListeners = exports.VidyoConferenceModeEventListeners = exports.VidyoMessageEventListeners = exports.VidyoLocalCameraEventListeners = exports.VidyoEnterRoomListeners = exports.VidyoEndpointListeners = exports.VidyoEnableMediaRoomListeners = exports.VidyoCustomLoggingEventListeners = exports.VidyoAdvancedSettingsEventListeners = exports.ResourceManagerEventListeners = exports.TransmittedStreamControllerListeners = exports.RoomControllerListeners = exports.RemoteStreamControllerListeners = exports.StreamControllerListeners = exports.StatisticsControllerListeners = exports.SmoothStartModeListeners = exports.ResourceControllerListeners = exports.RendererControllerListeners = exports.CompositeRenderListeners = exports.CustomRenderListeners = exports.RenderListeners = exports.PermissionControllerListeners = exports.ParticipantControllerListeners = exports.MessageControllerListeners = exports.ModerationControllerListeners = exports.MicrophoneEnergyLevelStreamListeners = exports.MicrophoneEnergyLevelControllerListeners = exports.LocalStreamControllerListeners = exports.DeviceControllerListeners = exports.ConnectionControllerListeners = exports.ConferenceControllerListeners = exports.CallStateControllerListeners = exports.VidyoInsightsListeners = exports.GoogleAnalyticsListeners = exports.AdvancedSettingsListeners = void 0;
-exports.ReleaseAllEventListeners = exports.CreateEventDispatcher = exports.VidyoUserListeners = exports.VidyoRenderCompositorViewChangeEventListener = exports.VidyoRenderVideoTileEventListener = exports.VidyoRoomUnprocessedAudioEventListeners = void 0;
+exports.VidyoRoomUnprocessedAudioEventListeners = exports.VidyoRoomRecorderInCallEventListeners = exports.VidyoRoomParticipantEventListeners = exports.VidyoResourceManagerEventListeners = exports.VidyoRemoteWindowShareEventListeners = exports.VidyoRemoteMicrophoneEventListeners = exports.VidyoRemoteCameraEventListeners = exports.VidyoReconnectEventListeners = exports.VidyoRaiseHandEventListeners = exports.VidyoPermissionEventListeners = exports.VidyoLocalWindowShareEventListeners = exports.VidyoRemoteSpeakerEventListeners = exports.VidyoLocalSpeakerEventListeners = exports.VidyoLocalMonitorEventListeners = exports.VidyoLocalMicrophoneEventListeners = exports.VidyoModerationEventListeners = exports.VidyoLectureModeEventListeners = exports.VidyoConferenceModeEventListeners = exports.VidyoMessageEventListeners = exports.VidyoLocalCameraEventListeners = exports.VidyoEnterRoomListeners = exports.VidyoEndpointListeners = exports.VidyoEnableMediaRoomListeners = exports.VidyoCustomLoggingEventListeners = exports.VidyoAdvancedSettingsEventListeners = exports.ResourceManagerEventListeners = exports.TransmittedStreamControllerListeners = exports.RoomControllerListeners = exports.RemoteStreamControllerListeners = exports.StreamControllerListeners = exports.StatisticsControllerListeners = exports.SmoothStartModeListeners = exports.ResourceControllerListeners = exports.RendererControllerListeners = exports.CompositeRenderListeners = exports.CustomRenderListeners = exports.RenderListeners = exports.PermissionControllerListeners = exports.ParticipantControllerListeners = exports.MessageControllerListeners = exports.ModerationControllerListeners = exports.MicrophoneEnergyLevelStreamListeners = exports.MicrophoneEnergyLevelControllerListeners = exports.LocalStreamControllerListeners = exports.DeviceControllerListeners = exports.ConnectionControllerListeners = exports.ConferenceControllerListeners = exports.CallStateControllerListeners = exports.GoogleAnalyticsListeners = exports.AdvancedSettingsListeners = void 0;
+exports.ReleaseAllEventListeners = exports.CreateEventDispatcher = exports.VidyoUserListeners = exports.VidyoRenderVideoTileEventListener = void 0;
 const WildEmitter = require("wildemitter");
 exports.AdvancedSettingsListeners = 'AdvancedSettingsListeners';
 exports.GoogleAnalyticsListeners = 'GoogleAnalyticsListeners';
-exports.VidyoInsightsListeners = 'VidyoInsightsListeners';
 exports.CallStateControllerListeners = 'CallStateControllerListeners';
 exports.ConferenceControllerListeners = 'ConferenceControllerListeners';
 exports.ConnectionControllerListeners = 'ConnectionControllerListeners';
@@ -21602,7 +20217,6 @@ exports.VidyoRoomParticipantEventListeners = 'VidyoRoomParticipantEventListeners
 exports.VidyoRoomRecorderInCallEventListeners = 'VidyoRoomRecorderInCallEventListeners';
 exports.VidyoRoomUnprocessedAudioEventListeners = 'VidyoRoomUnprocessedAudioEventListeners';
 exports.VidyoRenderVideoTileEventListener = 'VidyoRenderVideoTileEventListener';
-exports.VidyoRenderCompositorViewChangeEventListener = 'VidyoRenderCompositorViewChangeEventListener';
 exports.VidyoUserListeners = 'VidyoUserListeners';
 function CreateEventDispatcher() {
     let dispatcher = {};
@@ -21662,7 +20276,7 @@ function ReleaseAllEventListeners(wildEmitter) {
 }
 exports.ReleaseAllEventListeners = ReleaseAllEventListeners;
 
-},{"wildemitter":23}],64:[function(require,module,exports){
+},{"wildemitter":22}],62:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogEventDebug = exports.LogEventApp = exports.LogEventsSDK = exports.LogEventListSDK = exports.VidyoLogLevel = exports.VidyoLogCategory = void 0;
@@ -21709,7 +20323,7 @@ exports.LogEventsSDK = (0, EventListFactory_1.CreateEventList)('LogSDK', LogEven
 exports.LogEventApp = new EventListFactory_1.EventDescriptor('LogApp');
 exports.LogEventDebug = new EventListFactory_1.EventDescriptor('LogDebug');
 
-},{"../utils/EventListFactory":143}],65:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],63:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21729,7 +20343,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Message', EventList);
 
-},{"../utils/EventListFactory":143}],66:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],64:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21743,7 +20357,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('MicrophoneEnergy', EventList);
 
-},{"../utils/EventListFactory":143}],67:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],65:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = exports.EventServerModerationMessage = void 0;
@@ -21777,7 +20391,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Moderation', EventList);
 
-},{"../utils/EventListFactory":143}],68:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],66:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21798,7 +20412,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Participant', EventList);
 
-},{"../utils/EventListFactory":143}],69:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],67:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21814,7 +20428,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Permission', EventList);
 
-},{"../utils/EventListFactory":143}],70:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],68:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21824,9 +20438,6 @@ class EventList extends EventListFactory_1.EventListBase {
         super(...arguments);
         this.AddLocalStream = new EventListFactory_1.EventDescriptor();
         this.AddRemoteStream = new EventListFactory_1.EventDescriptor();
-        this.CompositorSetGalleryView = new EventListFactory_1.EventDescriptor();
-        this.CompositorSetGridView = new EventListFactory_1.EventDescriptor();
-        this.CompositorViewChanged = new EventListFactory_1.EventDescriptor();
         this.GridLayoutChanged = new EventListFactory_1.EventDescriptor();
         this.Hide = new EventListFactory_1.EventDescriptor();
         this.RecheckEachVideoSize = new EventListFactory_1.EventDescriptor();
@@ -21838,7 +20449,6 @@ class EventList extends EventListFactory_1.EventListBase {
         this.UpdateCameraControl = new EventListFactory_1.EventDescriptor();
         this.UpdateCompositeRenderer = new EventListFactory_1.EventDescriptor();
         this.UpdateLocalViewLabel = new EventListFactory_1.EventDescriptor();
-        this.UpdateLocalViewTag = new EventListFactory_1.EventDescriptor();
         this.UpdateMonitorShareViewLabel = new EventListFactory_1.EventDescriptor();
         this.UpdatePosition = new EventListFactory_1.EventDescriptor();
         this.UpdateSource = new EventListFactory_1.EventDescriptor();
@@ -21846,8 +20456,6 @@ class EventList extends EventListFactory_1.EventListBase {
         this.UpdateVideoTileControls = new EventListFactory_1.EventDescriptor();
         this.UpdateViewLabel = new EventListFactory_1.EventDescriptor();
         this.UpdateWindowShareViewLabel = new EventListFactory_1.EventDescriptor();
-        this.UpdateWindowShareEndLabel = new EventListFactory_1.EventDescriptor();
-        this.UpdateMonitorShareEndLabel = new EventListFactory_1.EventDescriptor();
         this.VideoCropSettingsChanged = new EventListFactory_1.EventDescriptor();
         this.VideoResolutionChanged = new EventListFactory_1.EventDescriptor();
         this.VideoTileAdded = new EventListFactory_1.EventDescriptor();
@@ -21858,7 +20466,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Render', EventList);
 
-},{"../utils/EventListFactory":143}],71:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],69:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21873,7 +20481,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('ResourcesManager', EventList);
 
-},{"../utils/EventListFactory":143}],72:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],70:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21892,7 +20500,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Room', EventList);
 
-},{"../utils/EventListFactory":143}],73:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],71:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Events = exports.EventList = void 0;
@@ -21901,7 +20509,6 @@ class EventList extends EventListFactory_1.EventListBase {
     constructor() {
         super(...arguments);
         this.CodecChanged = new EventListFactory_1.EventDescriptor();
-        this.IceGatheringComplete = new EventListFactory_1.EventDescriptor();
         this.ReceiveBandwidthUpdated = new EventListFactory_1.EventDescriptor();
         this.Update = new EventListFactory_1.EventDescriptor();
         this.UnprocessedAudioCodecUpdated = new EventListFactory_1.EventDescriptor();
@@ -21910,7 +20517,7 @@ class EventList extends EventListFactory_1.EventListBase {
 exports.EventList = EventList;
 exports.Events = (0, EventListFactory_1.CreateEventList)('Statistics', EventList);
 
-},{"../utils/EventListFactory":143}],74:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],72:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrackEvents = exports.TrackEventList = exports.Events = exports.EventList = void 0;
@@ -21963,7 +20570,7 @@ class TrackEventList extends EventListFactory_1.EventListBase {
 exports.TrackEventList = TrackEventList;
 exports.TrackEvents = (0, EventListFactory_1.CreateEventList)('Track', TrackEventList);
 
-},{"../utils/EventListFactory":143}],75:[function(require,module,exports){
+},{"../utils/EventListFactory":138}],73:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CmcpSession = exports.CmcpPacketProcessor = exports.CmcpGenericCommand = exports.CmcpNotify = exports.CmcpSubscribe = exports.ConferenceDestroy = exports.ConferenceModify = exports.ConferenceCreate = exports.ConferenceShowSelected = exports.ConferenceShow = exports.ConferenceReject = exports.ConferenceUpdate = exports.ConferenceLeave = exports.ConferenceAccept = exports.ConferenceJoin = exports.CmcpGenericAck = exports.CmcpReply = exports.CmcpCommand = exports.Profile = exports.CSessionTemplate = exports.ReasonTemplate = exports.ConferenceTemplate = exports.ConferenceLeaveReason = void 0;
@@ -22901,7 +21508,7 @@ class CmcpSession {
 }
 exports.CmcpSession = CmcpSession;
 
-},{"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/DeviceEvents":62,"../events/MessageEvents":65,"../events/ParticipantEvents":68,"../utils/Constants":138,"../utils/StringUtils":166,"./LmiProtocol":79,"./PacketProcessor":80,"./ScipSession":82}],76:[function(require,module,exports){
+},{"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/DeviceEvents":60,"../events/MessageEvents":63,"../events/ParticipantEvents":66,"../utils/Constants":133,"../utils/StringUtils":161,"./LmiProtocol":77,"./PacketProcessor":78,"./ScipSession":80}],74:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EventServerSession = void 0;
@@ -23046,7 +21653,7 @@ class EventServerSession {
             if (!this._jwt) {
                 this.logger.LogWarning(() => `EventServer: can't connect to event server. JWT is missing`);
             }
-            this.eventDispatcher.emit(ModerationEvents.Events.EventServerError, { serverUrl: this._serverURL, error: `Missing connection params` });
+            this.eventDispatcher.emit(ModerationEvents.Events.EventServerError, { error: `Missing connection params` });
         }
     }
     _connect() {
@@ -23066,12 +21673,12 @@ class EventServerSession {
     }
     _onConnected() {
         this.logger.LogDebug(() => `EventServer: connected to ${this._serverURL}`);
-        this.eventDispatcher.emit(ModerationEvents.Events.EventServerConnected, this._serverURL);
+        this.eventDispatcher.emit(ModerationEvents.Events.EventServerConnected);
         this._clientSubscription = this._stompClient.subscribe(`/user/topic/${this._endpointID}`, (message) => this._onMessage(message), { id: this._endpointID });
     }
     _onConnectingError(error) {
         this.logger.LogWarning(() => `EventServer: connection failed: ${error}`);
-        this.eventDispatcher.emit(ModerationEvents.Events.EventServerError, { serverUrl: this._serverURL, error });
+        this.eventDispatcher.emit(ModerationEvents.Events.EventServerError, { error });
     }
     _onMessage(message) {
         this.logger.LogDebug(() => `EventServer: message received: ${message.body}`, LogEvents_1.VidyoLogCategory.VidyoSignaling);
@@ -23080,7 +21687,7 @@ class EventServerSession {
 }
 exports.EventServerSession = EventServerSession;
 
-},{"../events/LogEvents":64,"../events/ModerationEvents":67,"../utils/Constants":138,"@stomp/stompjs":1}],77:[function(require,module,exports){
+},{"../events/LogEvents":62,"../events/ModerationEvents":65,"../utils/Constants":133,"@stomp/stompjs":1}],75:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CloseEventCode = void 0;
@@ -23091,15 +21698,11 @@ var CloseEventCode;
     CloseEventCode[CloseEventCode["AbnormalClosure"] = 1006] = "AbnormalClosure";
 })(CloseEventCode = exports.CloseEventCode || (exports.CloseEventCode = {}));
 
-},{}],78:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
 }) : (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
@@ -23115,6 +21718,7 @@ const ConnectionEvents = require("../events/ConnectionEvents");
 const ModerationEvents = require("../events/ModerationEvents");
 const RoomEvents = require("../events/RoomEvents");
 const Constants = require("../utils/Constants");
+const EndpointInfoProvider_1 = require("../utils/EndpointInfoProvider");
 const PromiseHelper_1 = require("../utils/PromiseHelper");
 const ConnectionEvents_1 = require("../events/ConnectionEvents");
 const LogEvents_1 = require("../events/LogEvents");
@@ -23153,9 +21757,6 @@ class HunterProvider {
         this._context = new HunterProviderContext();
         this._context.localUri = "";
         this._context.remoteUri = "";
-    }
-    get IsMediaSessionInited() {
-        return !!this._scipMediaSession;
     }
     AddStream(stream, renegotiate) {
         let provider = this;
@@ -23215,7 +21816,6 @@ class HunterProvider {
         if (this._options.secure) {
             schema += 's';
         }
-        const joinWebStartTime = Date.now();
         this._xmlhttp.open("POST", `${schema}://${this._options.host}/api/guest/v1/joinWeb`);
         this._xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
         this._xmlhttp.onreadystatechange = function () {
@@ -23228,7 +21828,6 @@ class HunterProvider {
                 try {
                     let response_body = JSON.parse(provider._xmlhttp.response);
                     if (response_body.errorCode == undefined) {
-                        const responseLatency = Date.now() - joinWebStartTime;
                         provider._ws_connection_string = response_body.websocketURI;
                         provider._context.routerId = response_body.routerId;
                         provider._context.remoteUri = response_body.routerURI;
@@ -23249,17 +21848,8 @@ class HunterProvider {
                         provider._context.endpointId = provider._context.localUri;
                         provider._logger.UpdateEndpointId(provider._context.endpointId);
                         provider._logger.UpdateUserId(provider._context.userId);
-                        const routerConnectStartTime = Date.now();
                         provider._connection = new WebSocketTransport.Connection(provider._logger, provider._ws_connection_string, provider._scipSession);
-                        provider._connection.connect(() => {
-                            const routerConnectLatency = Date.now() - routerConnectStartTime;
-                            provider._eventDispatcher.emit(ConnectionEvents.Events.MediaRouteConnected, {
-                                latency: routerConnectLatency
-                            });
-                            provider._eventDispatcher.emit(ConnectionEvents.Events.MediaRouteAcquired, {
-                                latency: responseLatency + routerConnectLatency
-                            });
-                        });
+                        provider._connection.connect();
                         let confPayload = {
                             reflector: provider._context.remoteUri,
                             id: provider._context.roomName,
@@ -23278,9 +21868,7 @@ class HunterProvider {
                             isSecure: true,
                             result: "all good",
                             guestId: tokenData?.userId,
-                            userName: provider._context.userName,
-                            conferenceId: response_body.roomId ?? response_body.conferenceId,
-                            latency: responseLatency
+                            userName: provider._context.userName
                         };
                         provider._eventDispatcher.emit(ConnectionEvents.Events.Connected, connectedPayload);
                         provider.jid = {
@@ -23338,7 +21926,10 @@ class HunterProvider {
         let request_body = {
             displayName: this._context.displayName,
             endpointDetails: {
-                ...this._options.endpointDetails
+                applicationName: EndpointInfoProvider_1.EndpointInfoProvider.ApplicationName,
+                applicationOs: EndpointInfoProvider_1.EndpointInfoProvider.ApplicationOS,
+                applicationVersion: EndpointInfoProvider_1.EndpointInfoProvider.ApplicationVersion,
+                lectureMode: true
             },
             notifications: 'vcap1',
             roomKey: this._options.roomKey,
@@ -23349,6 +21940,10 @@ class HunterProvider {
         }
         if (this._options.roomPin && this._options.roomPin !== '') {
             request_body.roomPin = this._options.roomPin;
+        }
+        if (this._options.extData && this._options.extData !== '' && this._options.extDataType) {
+            request_body.endpointDetails.extDataType = this._options.extDataType;
+            request_body.endpointDetails.extData = this._options.extData;
         }
         this._xmlhttp.send(JSON.stringify(request_body));
     }
@@ -23376,7 +21971,6 @@ class HunterProvider {
         }
         if (this._scipMediaSession) {
             this._scipMediaSession.Close();
-            this._scipMediaSession = null;
         }
         if (this._scipSession) {
             this._scipSession.Disconnect();
@@ -23471,17 +22065,16 @@ class HunterProvider {
         }
         return Promise.resolve(true);
     }
-    SendClientStats(sendStatsProvider, data) {
+    SendClientStats(sendStatsProvider, stats) {
         const labels = {
             EventType: 'WebRTCClientStats',
             ClientParticipantId: this._context.localUri,
-            ClientParticipantName: this._context.displayName,
             ClientRouterName: this._context.remoteUri,
             ClientConferenceId: this._context.roomName,
             ClientEndpointId: this._context.endpointId,
             ClientUserId: this._context.userId
         };
-        return sendStatsProvider.pushStats(labels, data);
+        sendStatsProvider.pushStats(labels, stats);
     }
     SendFeccMessage(options) {
         this._cmcpConferenceDialogSession.SendFeccMessage(options);
@@ -23671,7 +22264,7 @@ PresenceHelper.TIMEOUT = 15000;
 PresenceHelper.FETCH_TIMEOUT = 5000;
 PresenceHelper.RETRY_NUMBER_AFTER_FAIL = 3;
 
-},{"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/LogEvents":64,"../events/ModerationEvents":67,"../events/RoomEvents":72,"../utils/Constants":138,"../utils/PromiseHelper":159,"../utils/StringUtils":166,"./EventServerSession":76,"./HunterBase":77,"./ScipMediaSession":81,"./ScipSession":82,"./WebSocketTransport":84,"big-integer":3}],79:[function(require,module,exports){
+},{"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/LogEvents":62,"../events/ModerationEvents":65,"../events/RoomEvents":70,"../utils/Constants":133,"../utils/EndpointInfoProvider":136,"../utils/PromiseHelper":154,"../utils/StringUtils":161,"./EventServerSession":74,"./HunterBase":75,"./ScipMediaSession":79,"./ScipSession":80,"./WebSocketTransport":82,"big-integer":3}],77:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DialogIdTemplate = exports.IdentityListTemplate = exports.RemoteControl = exports.DialogId = exports.VersionMismatch = exports.Identity = void 0;
@@ -23716,7 +22309,7 @@ function DialogIdTemplate(dialogId) {
 }
 exports.DialogIdTemplate = DialogIdTemplate;
 
-},{}],80:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Processor = exports.Response = exports.Request = exports.Commands = exports.Replies = exports.Packet = exports.XmlDocument = exports.Reply = exports.Command = exports.ExecutableElement = exports.Element = exports.Atomic = exports.MessageType = void 0;
@@ -23957,12 +22550,11 @@ class Processor {
 }
 exports.Processor = Processor;
 
-},{"../utils/AssertExhaustiveSwitch":134,"./LmiProtocol":79}],81:[function(require,module,exports){
+},{"../utils/AssertExhaustiveSwitch":129,"./LmiProtocol":77}],79:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaSession = void 0;
 const AdvancedSettingsEvents = require("../events/AdvancedSettingsEvents");
-const StatisticsEvents = require("../events/StatisticsEvents");
 const ConnectionEvents = require("../events/ConnectionEvents");
 const Source_1 = require("../models/Source");
 const WebRtcSdpScel_1 = require("./WebRtcSdpScel");
@@ -23973,7 +22565,6 @@ const ConnectionEvents_1 = require("../events/ConnectionEvents");
 const Constants_1 = require("../utils/Constants");
 const TrackMetaDataProvider_1 = require("../controllers/StreamController/TrackMetaDataProvider");
 const Devices_1 = require("../../vidyo_simple_api/Devices");
-const AssertExhaustiveSwitch_1 = require("../utils/AssertExhaustiveSwitch");
 const TimingProvider_1 = require("../utils/TimingProvider");
 const Constants = require("../utils/Constants");
 function ArrangeVideoCodecByPreferenceList(sdp, codecs) {
@@ -24114,32 +22705,9 @@ function disableCodecs(input) {
     }
     return input;
 }
-function handleOpusDTX(input, enableDTX) {
+function enableOpusDTX(input) {
     if (input) {
-        if (enableDTX) {
-            return input.split('m=').map((mline) => {
-                if (mline.startsWith('audio') && mline.includes('a=mid:L') && !mline.includes('usedtx=1')) {
-                    let rtpmap = mline.match(/a=rtpmap:(\d*) opus.*\r\n/i);
-                    if (!rtpmap || rtpmap.length < 2) {
-                        return mline;
-                    }
-                    const fmtpRegExp = new RegExp(`(a=fmtp:${rtpmap[1]}.*)`, 'i');
-                    if (fmtpRegExp.test(mline)) {
-                        mline = mline.replace(fmtpRegExp, fmtp => fmtp + ';usedtx=1');
-                    }
-                    else {
-                        mline = mline.replace(rtpmap[0], str => {
-                            return str + `a=fmtp:${rtpmap[1]} minptime=10;useinbandfec=1;usedtx=1\r\n`;
-                        });
-                    }
-                    return mline;
-                }
-                return mline;
-            }).join('m=');
-        }
-        else {
-            return input.replace(/;usedtx=1|usedtx=1;/g, '');
-        }
+        input = input.replace(/useinbandfec=1/g, "useinbandfec=1;usedtx=1");
     }
     return input;
 }
@@ -24213,9 +22781,7 @@ class UnifiedSDPHelper {
         this._cachedLocalAnswerSDP = sdp;
     }
     CheckAndAddSimulcast(sdp) {
-        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsEdge() ||
-            OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsChrome() ||
-            OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsSafari()) {
+        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsChrome() || OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsSafari()) {
             return this.SDPAddSimulcast(sdp);
         }
         return sdp;
@@ -24918,9 +23484,6 @@ class MediaSession {
                         streams: [stream],
                         sendEncodings: []
                     };
-                    if (tr.kind === 'audio') {
-                        tr.enabled = false;
-                    }
                     let transceiver = this.pc.addTransceiver(tr, transceiverInit);
                     this._unifiedSDPHelper.AddSendTransceiver(transceiver, tr.kind);
                     needrenegotiate = true;
@@ -24947,6 +23510,14 @@ class MediaSession {
             iceServers: [{ "urls": [this._context.turnUri + `:${turn_port}`], "username": "vidyo", "credential": "tHISiSarEALLYlONGpASSWORD@2037" }],
             bundlePolicy: 'max-bundle'
         };
+        let constraint = {
+            optional: [
+                { googHighStartBitrate: 0 },
+                { googPayloadPadding: true },
+                { googScreencastMinBitrate: Constants.DefaultContentShareBandwidth / 1000 },
+                { googCpuOveruseDetection: true }
+            ]
+        };
         if (this._options.enableUDPTransport === false) {
             conf.iceTransportPolicy = 'relay';
         }
@@ -24954,7 +23525,7 @@ class MediaSession {
             conf.iceTransportPolicy = 'all';
         }
         let session = this;
-        this.pc = new RTCPeerConnection(conf);
+        this.pc = new RTCPeerConnection(conf, constraint);
         if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsIPadOS() || OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsIOS() || OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsFirefox()
             && !Array.isArray(window['__VIDEO_CODEC_BLACK_LIST__'])) {
             window['__VIDEO_CODEC_BLACK_LIST__'] = ['VP9'];
@@ -25017,9 +23588,6 @@ class MediaSession {
         this._eventDispatcher.on(AdvancedSettingsEvents.Events.EnableFixedSimulcastRunnelsChanged, MediaSession.MediaSessionEventsListeners, () => {
             this.UpdateMediaStates();
         });
-        this._eventDispatcher.on(AdvancedSettingsEvents.Events.AudioContentHintChanged, MediaSession.MediaSessionEventsListeners, () => {
-            this._updateMediaTracksContentHints();
-        });
         this._eventDispatcher.on(AdvancedSettingsEvents.Events.CameraContentHintChanged, MediaSession.MediaSessionEventsListeners, () => {
             this._updateMediaTracksContentHints();
         });
@@ -25033,9 +23601,6 @@ class MediaSession {
                 streams: [stream],
                 sendEncodings: []
             };
-            if (track.kind === 'audio') {
-                track.enabled = false;
-            }
             let transceiver = this.pc.addTransceiver(track, transceiverInit);
             this._unifiedSDPHelper.AddSendTransceiver(transceiver, track.kind);
             const { isSimulcast } = this._localStreamController.GetTrackMediaProperties(track.id);
@@ -25066,7 +23631,9 @@ class MediaSession {
                     offer.sdp = disableTCPCandidates(offer.sdp);
                 }
                 offer.sdp = disableCodecs(offer.sdp);
-                offer.sdp = handleOpusDTX(offer.sdp, this._options.enableOpusDTX);
+                if (this._options.enableOpusDTX) {
+                    offer.sdp = enableOpusDTX(offer.sdp);
+                }
                 const scel = this.SdpToScel(offer.sdp);
                 await this._provider._SetLocalCapabilities(scel);
                 this._asyncPromiseTaskDoneCallback = done;
@@ -25102,7 +23669,6 @@ class MediaSession {
         this._makeAsyncOperation(async (done) => {
             try {
                 this._logger.LogDebug(() => 'initial createOffer to trigger ICE gathering');
-                const iceGatheringStartTime = Date.now();
                 const offer = await this.pc.createOffer();
                 offer.sdp = AddLPrefixToSendMids(offer.sdp);
                 offer.sdp = ArrangeVideoCodecByPreferenceList(offer.sdp, this._codecsPreference);
@@ -25110,19 +23676,15 @@ class MediaSession {
                     offer.sdp = disableTCPCandidates(offer.sdp);
                 }
                 offer.sdp = disableCodecs(offer.sdp);
-                offer.sdp = handleOpusDTX(offer.sdp, this._options.enableOpusDTX);
+                if (this._options.enableOpusDTX) {
+                    offer.sdp = enableOpusDTX(offer.sdp);
+                }
                 if (this._options.enableVideoSimulcast || this._options.enableScreenShareSimulcast) {
                     offer.sdp = this._unifiedSDPHelper.CheckAndAddSimulcast(offer.sdp);
                 }
                 await this.pc.setLocalDescription(offer);
                 this._unifiedSDPHelper.ActualLocalSDP = offer.sdp;
                 this._unifiedSDPHelper.OnNewLocalOffer(offer.sdp);
-                const iceComplete = () => {
-                    this._eventDispatcher.emitAsync(StatisticsEvents.Events.IceGatheringComplete, {
-                        latency: Date.now() - iceGatheringStartTime
-                    });
-                    endOfIceCallback(done);
-                };
                 this.pc.onicecandidate = (event) => {
                     if (this.iceTimer) {
                         clearTimeout(this.iceTimer);
@@ -25130,11 +23692,11 @@ class MediaSession {
                     }
                     if (!event.candidate) {
                         this._logger.LogDebug(() => `no more ice candidate`);
-                        iceComplete();
+                        endOfIceCallback(done);
                     }
                     else {
                         this._logger.LogDebug(() => `ice candidate: ${JSON.stringify(event.candidate)}`);
-                        this.iceTimer = setTimeout(() => iceComplete(), this.iceTimeout);
+                        this.iceTimer = setTimeout(() => endOfIceCallback(done), this.iceTimeout);
                     }
                 };
             }
@@ -25157,7 +23719,9 @@ class MediaSession {
                     offer.sdp = disableTCPCandidates(offer.sdp);
                 }
                 offer.sdp = disableCodecs(offer.sdp);
-                offer.sdp = handleOpusDTX(offer.sdp, this._options.enableOpusDTX);
+                if (this._options.enableOpusDTX) {
+                    offer.sdp = enableOpusDTX(offer.sdp);
+                }
                 if (this._options.enableVideoSimulcast || this._options.enableScreenShareSimulcast) {
                     offer.sdp = this._unifiedSDPHelper.CheckAndAddSimulcast(offer.sdp);
                 }
@@ -25226,33 +23790,14 @@ class MediaSession {
     _updateMediaTracksContentHints() {
         const stream = this._localStreamController.GetTransmittedStream();
         stream.getTracks().forEach((track) => {
-            if (track.kind === 'audio' && 'contentHint' in track) {
+            if (track.kind === 'video' && 'contentHint' in track) {
                 const props = this._localStreamController.GetTrackMediaProperties(track.id);
-                const deviceId = track.getSettings()?.deviceId;
-                switch (props.signalType) {
-                    case Devices_1.VidyoDeviceAudioSignalType.VIDYO_DEVICEAUDIOSIGNALTYPE_Voice:
-                        track.contentHint = this._provider._simplifiedVidyoCore.AdvancedSettings.AudioContentHint;
-                        this._logger.LogDebug(() => `[${track.kind}]: update content hint "${track.contentHint}", signal: "voice", deviceId: "${deviceId}"`);
-                        break;
-                    case Devices_1.VidyoDeviceAudioSignalType.VIDYO_DEVICEAUDIOSIGNALTYPE_Unprocessed:
-                        track.contentHint = Constants.AudioMediaTrackContentHints.none;
-                        this._logger.LogDebug(() => `[${track.kind}]: update content hint "${track.contentHint}", signal: "unprocessed", deviceId: "${deviceId}"`);
-                        break;
-                    default:
-                        (0, AssertExhaustiveSwitch_1.assertExhaustive)(props.signalType);
-                }
-            }
-            else if (track.kind === 'video' && 'contentHint' in track) {
-                const props = this._localStreamController.GetTrackMediaProperties(track.id);
-                const deviceId = track.getSettings()?.deviceId;
                 switch (props.mediaType) {
                     case "application":
                         track.contentHint = this._provider._simplifiedVidyoCore.AdvancedSettings.WindowShareContentHint;
-                        this._logger.LogDebug(() => `[${props.mediaType}]: update content hint "${track.contentHint}", deviceId: "${deviceId}"`);
                         break;
                     case "video":
                         track.contentHint = this._provider._simplifiedVidyoCore.AdvancedSettings.CameraContentHint;
-                        this._logger.LogDebug(() => `[${props.mediaType}]: update content hint "${track.contentHint}", deviceId: "${deviceId}"`);
                         break;
                     default:
                         break;
@@ -25275,7 +23820,9 @@ class MediaSession {
                         answer.sdp = disableTCPCandidates(answer.sdp);
                     }
                     answer.sdp = disableCodecs(answer.sdp);
-                    answer.sdp = handleOpusDTX(answer.sdp, this._options.enableOpusDTX);
+                    if (this._options.enableOpusDTX) {
+                        answer.sdp = enableOpusDTX(answer.sdp);
+                    }
                     if (this._options.enableVideoSimulcast || this._options.enableScreenShareSimulcast) {
                         answer.sdp = this._unifiedSDPHelper.CheckAndAddSimulcast(answer.sdp);
                     }
@@ -25353,7 +23900,6 @@ class MediaSession {
         sdp = fixRemoteSDP(sdp);
         this._unifiedSDPHelper.UpdateMLinesTemplates(sdp);
         sdp = this._unifiedSDPHelper.GetActualRemoteSdp(isAnswer);
-        sdp = handleOpusDTX(sdp, this._options.enableOpusDTX);
         return sdp;
     }
     SdpToScel(sdp) {
@@ -25371,7 +23917,7 @@ class MediaSession {
 exports.MediaSession = MediaSession;
 MediaSession.MediaSessionEventsListeners = 'MediaSessionEventsListeners';
 
-},{"../../vidyo_simple_api/Devices":187,"../controllers/StreamController/TrackMetaDataProvider":54,"../events/AdvancedSettingsEvents":57,"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/LogEvents":64,"../events/StatisticsEvents":73,"../models/Source":95,"../utils/AssertExhaustiveSwitch":134,"../utils/Constants":138,"../utils/OperatingSystemInfoProvider":156,"../utils/TimingProvider":168,"./WebRtcSdpScel":83}],82:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../controllers/StreamController/TrackMetaDataProvider":52,"../events/AdvancedSettingsEvents":55,"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/LogEvents":62,"../models/Source":92,"../utils/Constants":133,"../utils/OperatingSystemInfoProvider":151,"../utils/TimingProvider":163,"./WebRtcSdpScel":81}],80:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScipSession = exports.ScipPacketProcessor = exports.GenericAck = exports.GenericCommand = exports.Unsubscribe = exports.SubscribeAck = exports.Subscribe = exports.Terminate = exports.Unregister = exports.RegisterAck = exports.Register = exports.SessionUpdateAck = exports.SessionUpdate = exports.SessionTerminate = exports.SessionReject = exports.SessionAccept = exports.SessionAnswer = exports.SessionInitiate = exports.ScipReply = exports.ScipCommand = exports.EndpointIdTemplate = exports.ToTemplate = exports.FocusFlagTemplate = exports.ExpiresTemplate = exports.ConferenceListTemplate = exports.DisplayTextTemplate = exports.Credentials = exports.CredentialsType = exports.ScipSessionEventType = exports.SessionState = void 0;
@@ -26486,7 +25032,7 @@ class ScipSession {
 }
 exports.ScipSession = ScipSession;
 
-},{"../events/ConferenceEvents":60,"../events/ConnectionEvents":61,"../events/LogEvents":64,"../events/StreamEvents":74,"./CmcpSession":75,"./LmiProtocol":79,"./PacketProcessor":80}],83:[function(require,module,exports){
+},{"../events/ConferenceEvents":58,"../events/ConnectionEvents":59,"../events/LogEvents":62,"../events/StreamEvents":72,"./CmcpSession":73,"./LmiProtocol":77,"./PacketProcessor":78}],81:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SetLogger = exports.ScelToSdp = exports.SdpToScel = void 0;
@@ -31629,7 +30175,7 @@ run();
     ;
 })(Module);
 
-},{}],84:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Connection = void 0;
@@ -31641,9 +30187,8 @@ class Connection {
         this.ws_connection_string = ws_connection_string;
         this.lmi_framing = true;
     }
-    connect(cb) {
+    connect() {
         this.socket = new Socket(this, this.ws_connection_string);
-        this._onConnectCb = cb;
     }
     disconnect() {
         if (this.socket.websocket) {
@@ -31657,9 +30202,6 @@ class Connection {
     _onopen() {
         this._logger.LogDebug(() => 'WebSocket opened', LogEvents_1.VidyoLogCategory.VidyoTransport);
         this._scipSession.TransportConnectionEstablished();
-        if (this._onConnectCb) {
-            this._onConnectCb();
-        }
     }
     _onerror(ev) {
         this._logger.LogError(() => `WebSocket Error: ${JSON.stringify(ev)}`);
@@ -31828,7 +30370,7 @@ class Socket {
     }
 }
 
-},{"../events/LogEvents":64}],85:[function(require,module,exports){
+},{"../events/LogEvents":62}],83:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.API = void 0;
@@ -31838,7 +30380,7 @@ var API;
     API["VidyoConnector"] = "VidyoConnector";
 })(API = exports.API || (exports.API = {}));
 
-},{}],86:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CMCPResultCodes = exports.IsSourceNotification = exports.IsLeaveNotification = exports.GhostMode = exports.ViewPolicy = exports.SourceState = exports.SelfViewPolicy = exports.AudioPolicy = void 0;
@@ -31920,7 +30462,7 @@ var CMCPResultCodes;
     CMCPResultCodes["LMI_CMCPRESULTCODE_ConferenceLocked"] = "561";
 })(CMCPResultCodes = exports.CMCPResultCodes || (exports.CMCPResultCodes = {}));
 
-},{}],87:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DialogIdentity = void 0;
@@ -31996,7 +30538,7 @@ class DialogIdentity {
 }
 exports.DialogIdentity = DialogIdentity;
 
-},{}],88:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VidyoMediaFormat = void 0;
@@ -32035,7 +30577,7 @@ var VidyoMediaFormat;
     VidyoMediaFormat["VIDYO_MEDIAFORMAT_Y8"] = "VIDYO_MEDIAFORMAT_Y8";
 })(VidyoMediaFormat = exports.VidyoMediaFormat || (exports.VidyoMediaFormat = {}));
 
-},{}],89:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Message = exports.SenderType = exports.MessageType = void 0;
@@ -32059,7 +30601,7 @@ class Message {
 }
 exports.Message = Message;
 
-},{"uuid":8}],90:[function(require,module,exports){
+},{"uuid":7}],88:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Participant = exports.ParticipantAppType = exports.VidyoParticipantTrust = exports.ParticipantOrigin = exports.LocalParticipantId = void 0;
@@ -32121,7 +30663,7 @@ class Participant {
         this.Devices[ssrc] = device;
     }
     AudioMuted() {
-        return this.Sources.filter((source) => source.Type === Source_1.SourceMediaType.Audio).every((source) => source.Paused);
+        return this.Sources.some((source) => source.Type === Source_1.SourceMediaType.Audio && source.Paused);
     }
     CameraTableUpdate(camera) {
         this.CameraTable[camera.Id] = camera;
@@ -32214,9 +30756,6 @@ class Participant {
     NotifyJoinedEvent(notifyCb) {
         notifyCb();
         this._syncPromiseResolve();
-        if (this.onJoinedEvent) {
-            this.onJoinedEvent();
-        }
     }
     NotifyDevicesEvents(notifyCb) {
         this._syncPromise.then(() => notifyCb());
@@ -32224,7 +30763,7 @@ class Participant {
 }
 exports.Participant = Participant;
 
-},{"../utils/Messages":152,"../utils/ObjectUtils":155,"../utils/PromiseHelper":159,"../utils/StringUtils":166,"./Source":95,"uuid":8}],91:[function(require,module,exports){
+},{"../utils/Messages":147,"../utils/ObjectUtils":150,"../utils/PromiseHelper":154,"../utils/StringUtils":161,"./Source":92,"uuid":7}],89:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PermissionType = void 0;
@@ -32235,54 +30774,7 @@ var PermissionType;
     PermissionType["geolocation"] = "VIDYO_PERMISSION_Location";
 })(PermissionType = exports.PermissionType || (exports.PermissionType = {}));
 
-},{}],92:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GetVidyoCoreSupportedFeatures = exports.GetVidyoCoreProductInfo = exports.SupportedFeatureName = exports.ProductInfoName = void 0;
-var ProductInfoName;
-(function (ProductInfoName) {
-    ProductInfoName["ApplicationName"] = "ApplicationName";
-    ProductInfoName["ApplicationVersion"] = "ApplicationVersion";
-    ProductInfoName["ApplicationOS"] = "ApplicationOS";
-    ProductInfoName["DeviceModel"] = "DeviceModel";
-    ProductInfoName["extDataType"] = "extDataType";
-    ProductInfoName["extData"] = "extData";
-})(ProductInfoName = exports.ProductInfoName || (exports.ProductInfoName = {}));
-var SupportedFeatureName;
-(function (SupportedFeatureName) {
-    SupportedFeatureName["LectureMode"] = "LectureMode";
-})(SupportedFeatureName = exports.SupportedFeatureName || (exports.SupportedFeatureName = {}));
-const mapProductInfoToJsonCore = {
-    [ProductInfoName.ApplicationName]: 'applicationName',
-    [ProductInfoName.ApplicationVersion]: 'applicationVersion',
-    [ProductInfoName.ApplicationOS]: 'applicationOs',
-    [ProductInfoName.DeviceModel]: 'deviceModel',
-    [ProductInfoName.extDataType]: 'extDataType',
-    [ProductInfoName.extData]: 'extData'
-};
-const mapSupportedFeaturesToJsonCore = {
-    [SupportedFeatureName.LectureMode]: 'lectureMode'
-};
-function GetVidyoCoreProductInfo(obj) {
-    return Object.entries(obj).reduce((result, [name, value]) => {
-        if (mapProductInfoToJsonCore[name]) {
-            result[mapProductInfoToJsonCore[name]] = value;
-        }
-        return result;
-    }, {});
-}
-exports.GetVidyoCoreProductInfo = GetVidyoCoreProductInfo;
-function GetVidyoCoreSupportedFeatures(obj) {
-    return Object.entries(obj).reduce((result, [name, value]) => {
-        if (mapSupportedFeaturesToJsonCore[name]) {
-            result[mapSupportedFeaturesToJsonCore[name]] = ['Enable', 'true', '1'].includes(value);
-        }
-        return result;
-    }, {});
-}
-exports.GetVidyoCoreSupportedFeatures = GetVidyoCoreSupportedFeatures;
-
-},{}],93:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RenderMode = void 0;
@@ -32291,7 +30783,7 @@ exports.RenderMode = {
     Custom: 'Custom'
 };
 
-},{}],94:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Room = void 0;
@@ -32299,7 +30791,7 @@ class Room {
 }
 exports.Room = Room;
 
-},{}],95:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Source = exports.SourceSignalType = exports.SourceType = exports.IsSourceMediaType = exports.SourceMediaType = void 0;
@@ -32337,7 +30829,7 @@ class Source {
 }
 exports.Source = Source;
 
-},{"uuid":8}],96:[function(require,module,exports){
+},{"uuid":7}],93:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
@@ -32345,7 +30837,7 @@ class User {
 }
 exports.User = User;
 
-},{}],97:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GetResolutionFromNominalBitrate = exports.NormalizeResolution = exports.GetPreferredCodec = exports.GetStdOutgoingBandwidth = exports.CalculateRemoteSourceBitrate = exports.CalculateSendBitrate = exports.CalculatePreferredSendBitrate = exports.CalculateNominalSendBitrate = exports.CalculateMinimumSendBitrate = exports.GetRemoteSourceResolutionToRequest = exports.BandwidthPreferred = exports.BandwidthNominal = exports.CodecName = exports.VideoStreamConstraints = exports.VideoResolutionSet = exports.VideoResolution = exports.AspectRatioRatioType = exports.BasicVideoResolution = void 0;
@@ -32658,137 +31150,7 @@ function GetResolutionFromNominalBitrate(codec, bitrate, aspectRatio) {
 }
 exports.GetResolutionFromNominalBitrate = GetResolutionFromNominalBitrate;
 
-},{"../utils/Constants":138}],98:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GetVidyoProperties = exports.VidyoProperty = void 0;
-class VidyoProperty {
-    constructor(name, value) {
-        this.name = name;
-        this.value = value;
-    }
-}
-exports.VidyoProperty = VidyoProperty;
-function GetVidyoProperties(obj) {
-    return Object.entries(obj).map(([name, value]) => {
-        return new VidyoProperty(name, value);
-    });
-}
-exports.GetVidyoProperties = GetVidyoProperties;
-
-},{}],99:[function(require,module,exports){
-"use strict";
-var _a, _b, _c;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EventTable = exports.EventAction = exports.EventCategory = void 0;
-var EventCategory;
-(function (EventCategory) {
-    EventCategory["General"] = "General";
-    EventCategory["Renderer"] = "Renderer";
-    EventCategory["Conference"] = "Conference";
-})(EventCategory = exports.EventCategory || (exports.EventCategory = {}));
-var EventAction;
-(function (EventAction) {
-    EventAction["DeviceInfo"] = "DeviceInfo";
-    EventAction["EnableAudioOnlyMode"] = "EnableAudioOnlyMode";
-    EventAction["DisableAudioOnlyMode"] = "DisableAudioOnlyMode";
-    EventAction["EnableAutoReconnect"] = "EnableAutoReconnect";
-    EventAction["DisableAutoReconnect"] = "DisableAutoReconnect";
-    EventAction["EnableScreenShareSimulcast"] = "EnableScreenShareSimulcast";
-    EventAction["DisableScreenShareSimulcast"] = "DisableScreenShareSimulcast";
-    EventAction["EnableVideoSimulcast"] = "EnableVideoSimulcast";
-    EventAction["DisableVideoSimulcast"] = "DisableVideoSimulcast";
-    EventAction["EnableFixedSimulcastRunnels"] = "EnableFixedSimulcastRunnels";
-    EventAction["DisableFixedSimulcastRunnels"] = "DisableFixedSimulcastRunnels";
-    EventAction["SetApplicationName"] = "SetApplicationName";
-    EventAction["SetApplicationVersion"] = "SetApplicationVersion";
-    EventAction["CreateView"] = "CreateView";
-    EventAction["EnableCompositorFixedParticipants"] = "EnableCompositorFixedParticipants";
-    EventAction["DisableCompositorFixedParticipants"] = "DisableCompositorFixedParticipants";
-    EventAction["ParticipantLimit"] = "ParticipantLimit";
-    EventAction["Join"] = "Join";
-    EventAction["UserType"] = "UserType";
-    EventAction["Reconnect"] = "Reconnect";
-    EventAction["Failed"] = "Failed";
-    EventAction["End"] = "End";
-})(EventAction = exports.EventAction || (exports.EventAction = {}));
-class EventTable {
-    constructor() {
-        this[_a] = {
-            [EventAction.DeviceInfo]: true,
-            [EventAction.EnableAudioOnlyMode]: true,
-            [EventAction.DisableAudioOnlyMode]: true,
-            [EventAction.EnableAutoReconnect]: true,
-            [EventAction.DisableAutoReconnect]: true,
-            [EventAction.EnableScreenShareSimulcast]: true,
-            [EventAction.DisableScreenShareSimulcast]: true,
-            [EventAction.EnableVideoSimulcast]: true,
-            [EventAction.DisableVideoSimulcast]: true,
-            [EventAction.EnableFixedSimulcastRunnels]: true,
-            [EventAction.DisableFixedSimulcastRunnels]: true,
-            [EventAction.SetApplicationName]: true,
-            [EventAction.SetApplicationVersion]: true,
-        };
-        this[_b] = {
-            [EventAction.CreateView]: true,
-            [EventAction.EnableCompositorFixedParticipants]: true,
-            [EventAction.DisableCompositorFixedParticipants]: true,
-            [EventAction.ParticipantLimit]: true
-        };
-        this[_c] = {
-            [EventAction.Join]: true,
-            [EventAction.UserType]: true,
-            [EventAction.Reconnect]: true,
-            [EventAction.Failed]: true,
-            [EventAction.End]: true
-        };
-    }
-    fromJson(json) {
-        try {
-            const settings = JSON.parse(json);
-            for (let eventCategory in settings) {
-                for (let eventAction in settings[eventCategory]) {
-                    if (this.hasOwnProperty(eventCategory) && this[eventCategory].hasOwnProperty(eventAction)) {
-                        this[eventCategory][eventAction] = settings[eventCategory][eventAction];
-                    }
-                }
-            }
-        }
-        catch (err) {
-            console.error(err);
-        }
-    }
-    toJson() {
-        return JSON.stringify(this);
-    }
-}
-exports.EventTable = EventTable;
-_a = EventCategory.General, _b = EventCategory.Renderer, _c = EventCategory.Conference;
-
-},{}],100:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VidyoInsightsEvent = exports.ClientEvents = void 0;
-var ClientEvents;
-(function (ClientEvents) {
-    ClientEvents["DeviceChanged"] = "DeviceChanged";
-    ClientEvents["MaxRemoteSourcesChanged"] = "MaxRemoteSourcesChanged";
-    ClientEvents["JoinConferenceRequest"] = "JoinConferenceRequest";
-    ClientEvents["MediaRouteAcquired"] = "MediaRouteAcquired";
-    ClientEvents["MediaEnabled"] = "MediaEnabled";
-    ClientEvents["EventServerConnected"] = "EventServerConnected";
-    ClientEvents["EventServerConnectionFailed"] = "EventServerConnectionFailed";
-})(ClientEvents = exports.ClientEvents || (exports.ClientEvents = {}));
-class VidyoInsightsEvent {
-    constructor(event, params = [], time = Date.now() + '000000') {
-        this.event = event;
-        this.params = params;
-        this.time = time;
-    }
-}
-exports.VidyoInsightsEvent = VidyoInsightsEvent;
-
-},{}],101:[function(require,module,exports){
+},{"../utils/Constants":133}],95:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FeccZoomControl = exports.FeccTiltControl = exports.FeccPanControl = exports.FeccCommand = exports.CameraControlCapabilities = exports.Camera = exports.CameraControl = void 0;
@@ -32829,13 +31191,7 @@ class Camera extends Device_1.Device {
         this._previewLabel = label;
     }
     get PreviewLabel() {
-        return this._previewLabel;
-    }
-    set PreviewTag(tag) {
-        this._previewTag = tag;
-    }
-    get PreviewTag() {
-        return this._previewTag;
+        return this._previewLabel || 'Preview';
     }
     set ControlCapabilities(capabilities) {
         this._controlCapabilities = capabilities;
@@ -32890,7 +31246,7 @@ var FeccZoomControl;
     FeccZoomControl["Out"] = "Out";
 })(FeccZoomControl = exports.FeccZoomControl || (exports.FeccZoomControl = {}));
 
-},{"./Device":102}],102:[function(require,module,exports){
+},{"./Device":96}],96:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Device = void 0;
@@ -32905,7 +31261,7 @@ class Device {
 }
 exports.Device = Device;
 
-},{"uuid":8}],103:[function(require,module,exports){
+},{"uuid":7}],97:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeviceList = void 0;
@@ -33004,7 +31360,7 @@ class DeviceList {
 exports.DeviceList = DeviceList;
 DeviceList.notInListMsg = 'Default device not in the device list';
 
-},{}],104:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeviceSelection = exports.SpeakerSelectionInfo = exports.MicrophoneSelectionInfo = exports.CameraSelectionInfo = exports.DeviceSelectionInfo = void 0;
@@ -33062,7 +31418,7 @@ class DeviceSelection {
 }
 exports.DeviceSelection = DeviceSelection;
 
-},{}],105:[function(require,module,exports){
+},{}],99:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Microphone = void 0;
@@ -33083,7 +31439,7 @@ class Microphone extends Device_1.Device {
 }
 exports.Microphone = Microphone;
 
-},{"../../../vidyo_simple_api/Devices":187,"./Device":102}],106:[function(require,module,exports){
+},{"../../../vidyo_simple_api/Devices":181,"./Device":96}],100:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Speaker = void 0;
@@ -33093,7 +31449,7 @@ class Speaker extends Device_1.Device {
 }
 exports.Speaker = Speaker;
 
-},{"./Device":102}],107:[function(require,module,exports){
+},{"./Device":96}],101:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WindowShare = void 0;
@@ -33103,7 +31459,80 @@ class WindowShare extends Device_1.Device {
 }
 exports.WindowShare = WindowShare;
 
-},{"./Device":102}],108:[function(require,module,exports){
+},{"./Device":96}],102:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GridLayout = void 0;
+const ObjectUtils_1 = require("../../utils/ObjectUtils");
+class GridLayout {
+    constructor(_columns = 1, _rows = 1, _spaceBefore = []) {
+        this._columns = _columns;
+        this._rows = _rows;
+        this._spaceBefore = _spaceBefore;
+    }
+    get Cells() { return this._columns * this._rows; }
+    get Columns() { return this._columns; }
+    get Rows() { return this._rows; }
+    get SpaceBefore() { return this._spaceBefore; }
+    Update(numberOfVideos, containerAspectRatio, averageVideoAspectRatio, fixedRowColumn) {
+        let startingRows = this._rows;
+        let startingColumns = this._columns;
+        let startingSpaceBefore = this._spaceBefore;
+        let rows;
+        let columns;
+        let spaceBefore = [];
+        if (numberOfVideos <= 0) {
+            rows = 0;
+            columns = 0;
+        }
+        else {
+            const cutoffForRowBasedLayout = 0.7;
+            if ((averageVideoAspectRatio / containerAspectRatio) < cutoffForRowBasedLayout) {
+                if (fixedRowColumn) {
+                    rows = 1;
+                }
+                else {
+                    let decimalRows = Math.sqrt((numberOfVideos * averageVideoAspectRatio) / containerAspectRatio);
+                    rows = Math.max(Math.ceil(decimalRows - 1 + cutoffForRowBasedLayout), 1);
+                }
+                columns = Math.ceil(numberOfVideos / rows);
+            }
+            else {
+                if (fixedRowColumn) {
+                    columns = 1;
+                }
+                else {
+                    let decimalColumns = Math.sqrt((numberOfVideos * containerAspectRatio) / averageVideoAspectRatio);
+                    let floatColumns = Math.max(decimalColumns - 1 + cutoffForRowBasedLayout, 1);
+                    columns = Number.isInteger(Math.sqrt(numberOfVideos))
+                        ? Math.round(floatColumns)
+                        : Math.ceil(floatColumns);
+                }
+                rows = Math.ceil(numberOfVideos / columns);
+            }
+            const extraSpacesInGrid = (rows * columns) - numberOfVideos;
+            if (extraSpacesInGrid > 0) {
+                spaceBefore.push(1);
+            }
+            if (extraSpacesInGrid > 1) {
+                const firstSpaceOfLastRow = columns * (rows - 1);
+                spaceBefore.push(firstSpaceOfLastRow);
+            }
+        }
+        this._rows = rows;
+        this._columns = columns;
+        this._spaceBefore = spaceBefore;
+        return startingRows !== rows
+            || startingColumns !== columns
+            || ObjectUtils_1.default.IsNotEqual(startingSpaceBefore, spaceBefore);
+    }
+}
+exports.GridLayout = GridLayout;
+GridLayout.MinimizedVideoAreaGridRows = 2;
+GridLayout.VideoAreaGridCols = 12;
+GridLayout.VideoAreaGridRows = 26;
+
+},{"../../utils/ObjectUtils":150}],103:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BandwidthSummaryStatistics = void 0;
@@ -33120,25 +31549,21 @@ class BandwidthSummaryStatistics {
 }
 exports.BandwidthSummaryStatistics = BandwidthSummaryStatistics;
 
-},{}],109:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EndpointStatistics = void 0;
 const LogStatistics_1 = require("./LogStatistics");
 class EndpointStatistics {
     constructor() {
-        this.ApplicationName = '';
         this.ApplicationTag = '';
-        this.ApplicationVersion = '';
         this.BuildTag = '';
         this.BytesReceivedTcp = 0;
         this.BytesReceivedUdp = 0;
         this.BytesSentTcp = 0;
         this.BytesSentUdp = 0;
         this.ConnectTime = '';
-        this.IceGatheringTimeConsumedMs = 0;
         this.Id = '';
-        this.JoinWebTimeConsumedMs = 0;
         this.LibraryVersion = '';
         this.LocalCameraStats = [];
         this.LocalMicrophoneStats = [];
@@ -33146,14 +31571,12 @@ class EndpointStatistics {
         this.LocalRendererStats = [];
         this.LocalSpeakerStats = [];
         this.LocalWindowShareStats = [];
-        this.LocationTagDetectionTimeConsumedMs = 0;
         this.LoginTimeConsumedMs = 0;
         this.LogStats = new LogStatistics_1.LogStatistics();
         this.MaxBitRate = 0;
         this.MaxEncodePixelRateInitial = 0;
         this.MediaEnableTimeConsumedMs = 0;
         this.MediaRouteAcquireTimeConsumedMs = 0;
-        this.MediaRouteConnectionTimeConsumedMs = 0;
         this.NetworkInterfaceStats = [];
         this.OsName = '';
         this.OsVersion = '';
@@ -33176,7 +31599,7 @@ class EndpointStatistics {
 }
 exports.EndpointStatistics = EndpointStatistics;
 
-},{"./LogStatistics":119}],110:[function(require,module,exports){
+},{"./LogStatistics":114}],105:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyTestDataStatistics = void 0;
@@ -33192,7 +31615,7 @@ class LatencyTestDataStatistics {
 }
 exports.LatencyTestDataStatistics = LatencyTestDataStatistics;
 
-},{}],111:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyTestStatistics = void 0;
@@ -33203,7 +31626,7 @@ class LatencyTestStatistics {
 }
 exports.LatencyTestStatistics = LatencyTestStatistics;
 
-},{}],112:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalMicrophoneStatistics = void 0;
@@ -33250,7 +31673,7 @@ class LocalMicrophoneStatistics {
 }
 exports.LocalMicrophoneStatistics = LocalMicrophoneStatistics;
 
-},{"../../utils/RTCStatsReportHelper":160,"../../utils/StatisticsExtension":165}],113:[function(require,module,exports){
+},{"../../utils/RTCStatsReportHelper":155,"../../utils/StatisticsExtension":160}],108:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalRendererStatistics = void 0;
@@ -33269,7 +31692,7 @@ class LocalRendererStatistics {
 }
 exports.LocalRendererStatistics = LocalRendererStatistics;
 
-},{}],114:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalRendererStreamStatistics = void 0;
@@ -33285,7 +31708,7 @@ class LocalRendererStreamStatistics {
 }
 exports.LocalRendererStreamStatistics = LocalRendererStreamStatistics;
 
-},{}],115:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalSpeakerStatistics = void 0;
@@ -33302,7 +31725,7 @@ class LocalSpeakerStatistics {
 }
 exports.LocalSpeakerStatistics = LocalSpeakerStatistics;
 
-},{}],116:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalSpeakerStreamStatistics = void 0;
@@ -33329,7 +31752,7 @@ class LocalSpeakerStreamStatistics {
 }
 exports.LocalSpeakerStreamStatistics = LocalSpeakerStreamStatistics;
 
-},{}],117:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalVideoSourceStatistics = void 0;
@@ -33378,7 +31801,7 @@ class LocalVideoSourceStatistics {
             this._calculateBitRateSent(rtcData);
             const codecStats = RTCStatsReportHelper_1.default.GetRTCCodecStats(stats, rtcData.codecId);
             if (codecStats) {
-                this.CodecName = RTCStatsReportHelper_1.default.GetCodecName(codecStats.mimeType);
+                this.CodecName = codecStats.mimeType;
             }
             this._lastRTCOutboundRTPStreamStats = rtcData;
             if ((this.Width === 0 || this.Height === 0) && rtcData.hasOwnProperty('trackId')) {
@@ -33465,7 +31888,7 @@ class LocalVideoSourceStatistics {
 }
 exports.LocalVideoSourceStatistics = LocalVideoSourceStatistics;
 
-},{"../../utils/Constants":138,"../../utils/RTCStatsReportHelper":160}],118:[function(require,module,exports){
+},{"../../utils/Constants":133,"../../utils/RTCStatsReportHelper":155}],113:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogDataStatistics = void 0;
@@ -33477,7 +31900,7 @@ class LogDataStatistics {
 }
 exports.LogDataStatistics = LogDataStatistics;
 
-},{}],119:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogStatistics = void 0;
@@ -33489,7 +31912,7 @@ class LogStatistics {
 }
 exports.LogStatistics = LogStatistics;
 
-},{}],120:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaConnectionTransportInformation = void 0;
@@ -33542,7 +31965,7 @@ class MediaConnectionTransportInformation {
 }
 exports.MediaConnectionTransportInformation = MediaConnectionTransportInformation;
 
-},{"../../utils/RTCStatsReportHelper":160}],121:[function(require,module,exports){
+},{"../../utils/RTCStatsReportHelper":155}],116:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetworkInterfaceStatistics = void 0;
@@ -33555,7 +31978,7 @@ class NetworkInterfaceStatistics {
 }
 exports.NetworkInterfaceStatistics = NetworkInterfaceStatistics;
 
-},{}],122:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ParticipantGenerationStatistics = void 0;
@@ -33574,7 +31997,7 @@ class ParticipantGenerationStatistics {
 }
 exports.ParticipantGenerationStatistics = ParticipantGenerationStatistics;
 
-},{}],123:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ParticipantStatistic = void 0;
@@ -33592,7 +32015,7 @@ class ParticipantStatistic {
 }
 exports.ParticipantStatistic = ParticipantStatistic;
 
-},{}],124:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RateShaperStatistics = void 0;
@@ -33607,7 +32030,7 @@ class RateShaperStatistics {
 }
 exports.RateShaperStatistics = RateShaperStatistics;
 
-},{}],125:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteMicrophoneStatistics = void 0;
@@ -33725,7 +32148,7 @@ class RemoteMicrophoneStatistics {
 }
 exports.RemoteMicrophoneStatistics = RemoteMicrophoneStatistics;
 
-},{"../../utils/Constants":138,"../../utils/OperatingSystemInfoProvider":156,"../../utils/RTCStatsReportHelper":160,"../../utils/StatisticsExtension":165}],126:[function(require,module,exports){
+},{"../../utils/Constants":133,"../../utils/OperatingSystemInfoProvider":151,"../../utils/RTCStatsReportHelper":155,"../../utils/StatisticsExtension":160}],121:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteRendererStreamStatistics = void 0;
@@ -33755,7 +32178,6 @@ class RemoteRendererStreamStatistics {
         this.Width = 0;
         this.WidthRequested = 0;
         if (this.Id && stats) {
-            this.Name = this.Id;
             this.FillFromRTCStats(stats, lastStats);
         }
     }
@@ -33772,10 +32194,6 @@ class RemoteRendererStreamStatistics {
             if (lastStats) {
                 const prevStats = RTCStatsReportHelper_1.default.GetRTCOutboundRTPStreamStats(lastStats, +this.Id, 'Video');
                 this.SendNetworkBitRate = RTCStatsReportHelper_1.default.GetSendNetworkBitrate(rtcData, prevStats);
-            }
-            const codecStats = RTCStatsReportHelper_1.default.GetRTCCodecStats(stats, rtcData.codecId);
-            if (codecStats) {
-                this.CodecName = RTCStatsReportHelper_1.default.GetCodecName(codecStats.mimeType);
             }
             if ((this.Width === 0 || this.Height === 0) && rtcData.hasOwnProperty('trackId')) {
                 const rtcMediaStreamTrackStats = RTCStatsReportHelper_1.default.GetRTCMediaStreamTrackStats(stats, rtcData['trackId']);
@@ -33797,16 +32215,10 @@ class RemoteRendererStreamStatistics {
             this.SendNetworkRtt = 1e9 * (remoteInboundRTPStats.roundTripTime || 0);
         }
     }
-    FillFromShowParameters(requestedShowParameters) {
-        this.BitRateRequested = Number(requestedShowParameters.bandwidth);
-        this.FpsRequested = Number(requestedShowParameters.framerate);
-        this.WidthRequested = Number(requestedShowParameters.width);
-        this.HeightRequested = Number(requestedShowParameters.height);
-    }
 }
 exports.RemoteRendererStreamStatistics = RemoteRendererStreamStatistics;
 
-},{"../../utils/RTCStatsReportHelper":160}],127:[function(require,module,exports){
+},{"../../utils/RTCStatsReportHelper":155}],122:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteSpeakerStreamStatistics = void 0;
@@ -33844,7 +32256,7 @@ class RemoteSpeakerStreamStatistics {
 }
 exports.RemoteSpeakerStreamStatistics = RemoteSpeakerStreamStatistics;
 
-},{"../../utils/RTCStatsReportHelper":160}],128:[function(require,module,exports){
+},{"../../utils/RTCStatsReportHelper":155}],123:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteVideoSourceStatistics = void 0;
@@ -33905,7 +32317,7 @@ class RemoteVideoSourceStatistics {
             this._calculateBitrate(rtcData);
             const codecStats = RTCStatsReportHelper_1.default.GetRTCCodecStats(stats, rtcData.codecId);
             if (codecStats) {
-                this.CodecName = RTCStatsReportHelper_1.default.GetCodecName(codecStats.mimeType);
+                this.CodecName = codecStats.mimeType;
             }
             let decodeTimeDelta = rtcData.totalDecodeTime;
             let framesDecodedDelta = rtcData.framesDecoded;
@@ -33993,7 +32405,7 @@ class RemoteVideoSourceStatistics {
 exports.RemoteVideoSourceStatistics = RemoteVideoSourceStatistics;
 RemoteVideoSourceStatistics.CURRENT_PACKETS_LOST_PERIOD = 10;
 
-},{"../../utils/Constants":138,"../../utils/RTCStatsReportHelper":160}],129:[function(require,module,exports){
+},{"../../utils/Constants":133,"../../utils/RTCStatsReportHelper":155}],124:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RoomStatistics = void 0;
@@ -34035,7 +32447,7 @@ class RoomStatistics {
 }
 exports.RoomStatistics = RoomStatistics;
 
-},{"./BandwidthSummaryStatistics":108,"./RateShaperStatistics":124}],130:[function(require,module,exports){
+},{"./BandwidthSummaryStatistics":103,"./RateShaperStatistics":119}],125:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyTestStatistics = exports.LatencyTestDataStatistics = exports.LogStatistics = exports.LogDataStatistics = exports.UserStatistics = exports.RoomStatistics = exports.RemoteVideoSourceStatistics = exports.RemoteSpeakerStreamStatistics = exports.RemoteRendererStreamStatistics = exports.RemoteMicrophoneStatistics = exports.RateShaperStatistics = exports.ParticipantStatistic = exports.ParticipantGenerationStatistics = exports.NetworkInterfaceStatistics = exports.MediaConnectionTransportInformation = exports.LocalVideoSourceStatistics = exports.LocalSpeakerStreamStatistics = exports.LocalSpeakerStatistics = exports.LocalRendererStreamStatistics = exports.LocalRendererStatistics = exports.LocalMicrophoneStatistics = exports.EndpointStatistics = exports.BandwidthSummaryStatistics = exports.ShareStatistics = exports.ParticipantStatistics = exports.CallStatistics = void 0;
@@ -34278,7 +32690,7 @@ Object.defineProperty(exports, "LatencyTestDataStatistics", { enumerable: true, 
 var LatencyTestStatistics_1 = require("./LatencyTestStatistics");
 Object.defineProperty(exports, "LatencyTestStatistics", { enumerable: true, get: function () { return LatencyTestStatistics_1.LatencyTestStatistics; } });
 
-},{"../../utils/Collection":137,"../../utils/ObjectUtils":155,"../../utils/PrettyNumber":158,"./BandwidthSummaryStatistics":108,"./EndpointStatistics":109,"./LatencyTestDataStatistics":110,"./LatencyTestStatistics":111,"./LocalMicrophoneStatistics":112,"./LocalRendererStatistics":113,"./LocalRendererStreamStatistics":114,"./LocalSpeakerStatistics":115,"./LocalSpeakerStreamStatistics":116,"./LocalVideoSourceStatistics":117,"./LogDataStatistics":118,"./LogStatistics":119,"./MediaConnectionTransportInformation":120,"./NetworkInterfaceStatistics":121,"./ParticipantGenerationStatistics":122,"./ParticipantStatistic":123,"./RateShaperStatistics":124,"./RemoteMicrophoneStatistics":125,"./RemoteRendererStreamStatistics":126,"./RemoteSpeakerStreamStatistics":127,"./RemoteVideoSourceStatistics":128,"./RoomStatistics":129,"./UserStatistics":131}],131:[function(require,module,exports){
+},{"../../utils/Collection":132,"../../utils/ObjectUtils":150,"../../utils/PrettyNumber":153,"./BandwidthSummaryStatistics":103,"./EndpointStatistics":104,"./LatencyTestDataStatistics":105,"./LatencyTestStatistics":106,"./LocalMicrophoneStatistics":107,"./LocalRendererStatistics":108,"./LocalRendererStreamStatistics":109,"./LocalSpeakerStatistics":110,"./LocalSpeakerStreamStatistics":111,"./LocalVideoSourceStatistics":112,"./LogDataStatistics":113,"./LogStatistics":114,"./MediaConnectionTransportInformation":115,"./NetworkInterfaceStatistics":116,"./ParticipantGenerationStatistics":117,"./ParticipantStatistic":118,"./RateShaperStatistics":119,"./RemoteMicrophoneStatistics":120,"./RemoteRendererStreamStatistics":121,"./RemoteSpeakerStreamStatistics":122,"./RemoteVideoSourceStatistics":123,"./RoomStatistics":124,"./UserStatistics":126}],126:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserStatistics = void 0;
@@ -34295,7 +32707,7 @@ class UserStatistics {
 }
 exports.UserStatistics = UserStatistics;
 
-},{"./LatencyTestStatistics":111}],132:[function(require,module,exports){
+},{"./LatencyTestStatistics":106}],127:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReadOnlyMediaStream = void 0;
@@ -34335,9 +32747,6 @@ class ReadOnlyMediaStream {
     get Id() {
         return this._mediaStream.id;
     }
-    get IsActive() {
-        return this._mediaStream.active;
-    }
 }
 exports.ReadOnlyMediaStream = ReadOnlyMediaStream;
 class CallbackRecord {
@@ -34347,7 +32756,7 @@ class CallbackRecord {
     }
 }
 
-},{"./ReadOnlyMediaTrack":133}],133:[function(require,module,exports){
+},{"./ReadOnlyMediaTrack":128}],128:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReadOnlyMediaTrack = void 0;
@@ -34386,7 +32795,7 @@ class ReadOnlyMediaTrack {
 }
 exports.ReadOnlyMediaTrack = ReadOnlyMediaTrack;
 
-},{"../Source":95}],134:[function(require,module,exports){
+},{"../Source":92}],129:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.assertExhaustive = void 0;
@@ -34397,7 +32806,7 @@ function assertExhaustive(x, message = 'Not all cases are handled') {
 }
 exports.assertExhaustive = assertExhaustive;
 
-},{}],135:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssignHiddenPropertyValue = void 0;
@@ -34406,7 +32815,7 @@ function AssignHiddenPropertyValue(object, propertyKey, value) {
 }
 exports.AssignHiddenPropertyValue = AssignHiddenPropertyValue;
 
-},{}],136:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateAutoProperties = void 0;
@@ -34417,7 +32826,7 @@ function CreateAutoProperties(mixin, thisObject, makeDescriptor) {
 }
 exports.CreateAutoProperties = CreateAutoProperties;
 
-},{}],137:[function(require,module,exports){
+},{}],132:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Collection = exports.DataWithId = void 0;
@@ -34460,11 +32869,11 @@ class Collection {
 }
 exports.Collection = Collection;
 
-},{"./ObjectUtils":155}],138:[function(require,module,exports){
+},{"./ObjectUtils":150}],133:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MaxBitratePerStream = exports.SubscriptionDialogDuration = exports.StreamMonitoringInterval = exports.ResourceManagerInitializationPeriod = exports.ResourceManagerStatisticsAnalyzingInterval = exports.ResourceManagerStatisticsMeasuringInterval = exports.SendClientStatisticsInterval = exports.LogClientStatisticsInterval = exports.StatisticsRefreshInterval = exports.SecToMsCoefficient = exports.ResourceIdDomainSeparator = exports.PreviewParticipantId = exports.TabletParticipantLimit = exports.MobileParticipantLimit = exports.RestrictedParticipantLimit = exports.ParticipantLimit = exports.NumberOfSelectedAudioSources = exports.Muc = exports.KiloCoefficient = exports.BatchTimeOut = exports.AtomicTimeOut = exports.MinimumLocalStreamWidth = exports.MinimumLocalStreamHeight = exports.GoogleAnalyticsLocalStorageCIDKey = exports.GoogleAnalyticsEventTableKey = exports.GoogleAnalyticsTrackingID = exports.GoogleAnalyticsServerURL = exports.EventServerConnectingTimeout = exports.DtmfToneDuration = exports.DeviceDetectionDalay = exports.DefaultTurnsPort = exports.DefaultTurnPort = exports.DefaultTimeOut = exports.DefaultSelfViewPolicy = exports.DefaultPort = exports.DefaultLocalShareStreamWidth = exports.DefaultLocalShareStreamHeight = exports.DefaultLocalShareStreamFrameRate = exports.DefaultLocalStreamWidth = exports.DefaultLocalStreamHeight = exports.DefaultLocalStreamFrameRate = exports.DefaultSignalingBandwidth = exports.DefaultContentShareBandwidth = exports.DefaultAudioBandwidth = exports.ScreenRefreshRate = exports.ChatMessageSizeLimit = exports.BitsInByteValue = exports.BaseTenRadix = exports.ApplicationName = exports.ApplicationTag = void 0;
-exports.CompatibilityTable = exports.GeoLocationServiceURL = exports.MediaDevicesBlackList = exports.VideoMediaTrackContentHints = exports.AudioMediaTrackContentHints = exports.RoomStatePollingIntervalMs = exports.FeccMoveInterval = exports.FeccZoomInterval = exports.FeccNudgeInterval = exports.FeccMoveDurationNs = exports.FeccMoveDurationMs = exports.WindowsMinHardwareConcurency = exports.VideoExcludeCodec = exports.VideoOutboundCodecPreference = exports.VideoInboundCodecPreference = exports.Runnels = exports.LogsPushIntervalMin = exports.LogsPushIntervalMax = exports.LogsPushIntervalDefault = exports.LocationCheckTimeout = exports.LatencyCheckTimeout = exports.MaxRemoteSharesLimit = exports.MaxDisplayNameLength = exports.LocationConstraint = exports.MediaConstraints = exports.OutgoingBandwidthCalculationInterval = exports.LibBuild = exports.LibVersion = exports.ReflectorPoolsURL = exports.Threshold = void 0;
+exports.MaxBitratePerStream = exports.SubscriptionDialogDuration = exports.StreamMonitoringInterval = exports.ResourceManagerInitializationPeriod = exports.ResourceManagerStatisticsAnalyzingInterval = exports.ResourceManagerStatisticsMeasuringInterval = exports.SendClientStatisticsInterval = exports.LogClientStatisticsInterval = exports.StatisticsRefreshInterval = exports.SecToMsCoefficient = exports.ResourceIdDomainSeparator = exports.PreviewParticipantId = exports.TabletParticipantLimit = exports.MobileParticipantLimit = exports.RestrictedParticipantLimit = exports.ParticipantLimit = exports.NumberOfSelectedAudioSources = exports.Muc = exports.KiloCoefficient = exports.BatchTimeOut = exports.AtomicTimeOut = exports.MinimumLocalStreamWidth = exports.MinimumLocalStreamHeight = exports.GoogleAnalyticsLocalStorageCIDKey = exports.GoogleAnalyticsEventTableKey = exports.GoogleAnalyticsTrackingID = exports.GoogleAnalyticsBaseURL = exports.EventServerConnectingTimeout = exports.DtmfToneDuration = exports.DeviceDetectionDalay = exports.DefaultTurnsPort = exports.DefaultTurnPort = exports.DefaultTimeOut = exports.DefaultSelfViewPolicy = exports.DefaultPort = exports.DefaultLocalShareStreamWidth = exports.DefaultLocalShareStreamHeight = exports.DefaultLocalShareStreamFrameRate = exports.DefaultLocalStreamWidth = exports.DefaultLocalStreamHeight = exports.DefaultLocalStreamFrameRate = exports.DefaultSignalingBandwidth = exports.DefaultContentShareBandwidth = exports.DefaultAudioBandwidth = exports.ScreenRefreshRate = exports.ChatMessageSizeLimit = exports.BitsInByteValue = exports.BaseTenRadix = exports.ApplicationName = exports.ApplicationTag = void 0;
+exports.CompatibilityTable = exports.MediaDevicesBlackList = exports.VideoMediaTrackContentHints = exports.RoomStatePollingIntervalMs = exports.FeccMoveInterval = exports.FeccZoomInterval = exports.FeccNudgeInterval = exports.FeccMoveDurationNs = exports.FeccMoveDurationMs = exports.WindowsMinHardwareConcurency = exports.VideoExcludeCodec = exports.VideoOutboundCodecPreference = exports.VideoInboundCodecPreference = exports.Runnels = exports.LogsPushIntervalMin = exports.LogsPushIntervalMax = exports.LogsPushIntervalDefault = exports.LocationCheckTimeout = exports.LatencyCheckTimeout = exports.MaxDisplayNameLength = exports.LocationConstraint = exports.MediaConstraints = exports.OutgoingBandwidthCalculationInterval = exports.LibBuild = exports.LibVersion = exports.ReflectorPoolsURL = exports.Threshold = void 0;
 const ConferenceCommandParameters_1 = require("../models/ConferenceCommandParameters");
 const OperatingSystemInfoProvider_1 = require("./OperatingSystemInfoProvider");
 exports.ApplicationTag = 'NativeWebRTC';
@@ -34490,7 +32899,7 @@ exports.DefaultTurnsPort = 443;
 exports.DeviceDetectionDalay = 3000;
 exports.DtmfToneDuration = 600;
 exports.EventServerConnectingTimeout = 5000;
-exports.GoogleAnalyticsServerURL = 'https://www.google-analytics.com/collect';
+exports.GoogleAnalyticsBaseURL = 'https://www.google-analytics.com';
 exports.GoogleAnalyticsTrackingID = 'UA-196387678-1';
 exports.GoogleAnalyticsEventTableKey = 'VidyoCore::GA:EventTable';
 exports.GoogleAnalyticsLocalStorageCIDKey = 'VidyoCore::GA:ClientID';
@@ -34519,13 +32928,12 @@ exports.SubscriptionDialogDuration = 3600;
 exports.MaxBitratePerStream = 3000000;
 exports.Threshold = 0.1;
 exports.ReflectorPoolsURL = '/static/poolreflectors.json';
-exports.LibVersion = '22.4.0';
-exports.LibBuild = '0065';
+exports.LibVersion = '22.3.0';
+exports.LibBuild = '0058';
 exports.OutgoingBandwidthCalculationInterval = 10000;
 exports.MediaConstraints = { audio: true, video: true };
 exports.LocationConstraint = false;
 exports.MaxDisplayNameLength = 255;
-exports.MaxRemoteSharesLimit = 1;
 exports.LatencyCheckTimeout = 1000;
 exports.LocationCheckTimeout = exports.LatencyCheckTimeout;
 exports.LogsPushIntervalDefault = 1000;
@@ -34539,46 +32947,44 @@ exports.WindowsMinHardwareConcurency = 4;
 exports.FeccMoveDurationMs = 300;
 exports.FeccMoveDurationNs = 300000000;
 exports.FeccNudgeInterval = 500;
-exports.FeccZoomInterval = 300;
+exports.FeccZoomInterval = 650;
 exports.FeccMoveInterval = 150;
 exports.RoomStatePollingIntervalMs = 2000;
-exports.AudioMediaTrackContentHints = { speech: 'speech', speechRecognition: 'speech-recognition', music: 'music', none: '' };
 exports.VideoMediaTrackContentHints = { motion: 'motion', detail: 'detail', text: 'text', none: '' };
-exports.MediaDevicesBlackList = ['ZoomAudioDevice', 'Microsoft Teams'];
-exports.GeoLocationServiceURL = '';
+exports.MediaDevicesBlackList = ['ZoomAudioDevice'];
 exports.CompatibilityTable = Object.freeze({
     [OperatingSystemInfoProvider_1.OperatingSystem.macOS]: {
         minVersionSupported: 10.15,
         minBrowserVersionSupported: {
-            Chrome: 102,
-            Safari: 15.5,
+            Chrome: 99,
+            Safari: 15.4,
         }
     },
     [OperatingSystemInfoProvider_1.OperatingSystem.Windows]: {
         minVersionSupported: 10,
         minBrowserVersionSupported: {
-            Chrome: 102,
-            Edge: 102,
+            Chrome: 99,
+            Edge: 99,
         }
     },
     [OperatingSystemInfoProvider_1.OperatingSystem.Android]: {
         minVersionSupported: 11,
         minBrowserVersionSupported: {
-            Chrome: 102,
+            Chrome: 99,
         }
     },
     [OperatingSystemInfoProvider_1.OperatingSystem.iOS]: {
         minVersionSupported: 15,
         minBrowserVersionSupported: {
-            Safari: 15.5,
+            Safari: 15.4,
         }
     },
 });
 
-},{"../models/ConferenceCommandParameters":86,"./OperatingSystemInfoProvider":156}],139:[function(require,module,exports){
+},{"../models/ConferenceCommandParameters":84,"./OperatingSystemInfoProvider":151}],134:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.once = exports.notImplemented = exports.debounce = void 0;
+exports.notImplemented = exports.debounce = void 0;
 const Messages_1 = require("./Messages");
 function debounce(delay = 0) {
     return function (target, propertyKey, descriptor) {
@@ -34604,20 +33010,8 @@ function notImplemented(target, propertyKey, descriptor) {
     return descriptor;
 }
 exports.notImplemented = notImplemented;
-function once(target, propertyKey, descriptor) {
-    const originalMethod = descriptor.value;
-    let executed = false;
-    descriptor.value = function (...args) {
-        if (!executed) {
-            originalMethod.apply(this, args);
-        }
-        executed = true;
-    };
-    return descriptor;
-}
-exports.once = once;
 
-},{"./Messages":152}],140:[function(require,module,exports){
+},{"./Messages":147}],135:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DtmfPlayer = void 0;
@@ -34779,7 +33173,7 @@ class DtmfPlayer {
 }
 exports.DtmfPlayer = DtmfPlayer;
 
-},{}],141:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EndpointInfoProvider = void 0;
@@ -34816,7 +33210,7 @@ EndpointInfoProvider._applicationName = Constants_1.ApplicationName;
 EndpointInfoProvider._applicationOS = EndpointInfoProvider._getDefaultApplicationOS();
 EndpointInfoProvider._applicationVersion = `${Constants_1.LibVersion}.${Constants_1.LibBuild}`;
 
-},{"./Constants":138,"./OperatingSystemInfoProvider":156}],142:[function(require,module,exports){
+},{"./Constants":133,"./OperatingSystemInfoProvider":151}],137:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotValidClientError = exports.TimeOutError = exports.DuplicateNameError = void 0;
@@ -34845,7 +33239,7 @@ class NotValidClientError extends Error {
 exports.NotValidClientError = NotValidClientError;
 NotValidClientError.Name = 'NotValidClientError';
 
-},{}],143:[function(require,module,exports){
+},{}],138:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateEventList = exports.EventListBase = exports.EventDescriptor = void 0;
@@ -34879,7 +33273,7 @@ function CreateEventList(namespace, EventMapClass) {
 }
 exports.CreateEventList = CreateEventList;
 
-},{}],144:[function(require,module,exports){
+},{}],139:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FiniteStateMachine = void 0;
@@ -34909,11 +33303,12 @@ class FiniteStateMachine {
 }
 exports.FiniteStateMachine = FiniteStateMachine;
 
-},{}],145:[function(require,module,exports){
+},{}],140:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleAnalyticsProvider = void 0;
 const XmlHttpRequest_1 = require("./XmlHttpRequest");
+const Constants_1 = require("./Constants");
 class GoogleAnalyticsProvider {
     static SendEvent(options) {
         if (GoogleAnalyticsProvider.isDisabled) {
@@ -34933,7 +33328,7 @@ class GoogleAnalyticsProvider {
             queryData.cid = options.clientId;
         }
         const searchParams = new URLSearchParams(queryData);
-        const url = `${options.serverURL}?${searchParams.toString()}`;
+        const url = `${GoogleAnalyticsProvider.baseURL}/collect?${searchParams.toString()}`;
         return (0, XmlHttpRequest_1.Get)({ url }).then(() => {
             return Promise.resolve(true);
         }).catch((err) => {
@@ -34942,9 +33337,10 @@ class GoogleAnalyticsProvider {
     }
 }
 exports.GoogleAnalyticsProvider = GoogleAnalyticsProvider;
+GoogleAnalyticsProvider.baseURL = Constants_1.GoogleAnalyticsBaseURL;
 GoogleAnalyticsProvider.isDisabled = false;
 
-},{"./XmlHttpRequest":175}],146:[function(require,module,exports){
+},{"./Constants":133,"./XmlHttpRequest":170}],141:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const NotEqual_1 = require("./NotEqual");
@@ -35006,7 +33402,7 @@ class HisteresticValue {
 }
 exports.default = HisteresticValue;
 
-},{"./NotEqual":153}],147:[function(require,module,exports){
+},{"./NotEqual":148}],142:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 function Decorate(constructor) {
@@ -35038,33 +33434,10 @@ function validate(target, key, args) {
                 required: objectify(Arguments[key])
             };
         }
-        else if (expectedArgs.hasOwnProperty('required') &&
-            (args.length !== 1 || typeof args[0] !== 'object' || args[0] === null)) {
+        else if (args.length !== 1 || typeof args[0] !== 'object' || args[0] === null) {
             throw `${className}::${key}: 'Method accepts 1 argument with type of "object"`;
         }
-        if (typeof actualArgs[0] === 'undefined' && !expectedArgs.hasOwnProperty('required')) {
-            return;
-        }
-        const getInvalidInterfaceMessage = (prop, actual, expected) => {
-            return `${className}::${key}: Invalid interface.` +
-                `\n\nActual: ${JSON.stringify({ [prop]: actual }, null, 2)}` +
-                `\n\nRequired: ${JSON.stringify({ [prop]: getRequiredNestedInterface(expected) }, null, 2)}`;
-        };
-        const inspectArray = (prop, actual, expected) => {
-            if (!Array.isArray(actual)) {
-                throw getInvalidInterfaceMessage(prop, actual, expected);
-            }
-            for (let i = 0; i < actual.length; i++) {
-                const argObj = actual[i];
-                if (typeof expected[0] === 'string' && !expected[0].split('|').includes(typeOf(argObj))) {
-                    const actualType = argObj === null ? 'null' : typeof argObj;
-                    throw `${className}::${key}: Invalid type of ${prop}[${i}].` +
-                        `\n\r  Expected type: ${expected[0]}, but actually got a ${actualType}`;
-                }
-                inspect([argObj], expected[0]);
-            }
-        };
-        const inspect = (actualArgs, expectedArgs) => {
+        void function inspect(actualArgs, expectedArgs) {
             let completeArgs = { ...{ required: {}, optional: {} }, ...expectedArgs };
             let flatArgs = { ...completeArgs.required, ...completeArgs.optional };
             let requiredKeys = getObjectKeys(completeArgs.required);
@@ -35078,19 +33451,15 @@ function validate(target, key, args) {
             }
             for (let prop in flatArgs) {
                 if (prop) {
-                    if (isObject(flatArgs[prop])) {
+                    if (typeof flatArgs[prop] === 'object' && flatArgs[prop] !== null) {
                         for (let actualArg of actualArgs) {
-                            if (isObject(actualArg) && !actualArg.hasOwnProperty(prop) && requiredKeys.includes(prop)) {
-                                throw `${className}::${key}: Missing property "${prop}": "${JSON.stringify(getRequiredNestedInterface(flatArgs[prop]), null, 2)}"`;
-                            }
-                            else if (Array.isArray(flatArgs[prop]) && (actualArg[prop] !== undefined || requiredKeys.includes(prop))) {
-                                inspectArray(prop, actualArg[prop], flatArgs[prop]);
-                            }
-                            else if (isObject(actualArg[prop])) {
+                            if (typeof actualArg[prop] === 'object' && actualArg[prop] !== null) {
                                 inspect([actualArg[prop]], flatArgs[prop]);
                             }
                             else if (prop in actualArg && completeKeys.includes(prop)) {
-                                throw getInvalidInterfaceMessage(prop, actualArg[prop], flatArgs[prop]);
+                                throw `${className}::${key}: Invalid interface.` +
+                                    `\n\nActual: ${JSON.stringify({ [prop]: actualArg[prop] }, null, 2)}` +
+                                    `\n\nRequired: ${JSON.stringify({ [prop]: getRequiredNestedInteface(flatArgs[prop]) }, null, 2)}`;
                             }
                         }
                     }
@@ -35104,15 +33473,11 @@ function validate(target, key, args) {
                     }
                 }
             }
-        };
-        inspect(actualArgs, expectedArgs);
+        }(actualArgs, expectedArgs);
     }
     else if (args.length) {
         throw `${className}::${key}: Method doesn't accept any arguments`;
     }
-}
-function isObject(value) {
-    return typeof value === 'object' && value !== null;
 }
 function typeOf(argument) {
     return typeof argument === 'object' && !argument ? 'null' : typeof argument;
@@ -35120,19 +33485,19 @@ function typeOf(argument) {
 function getObjectKeys(o) {
     return o && typeof o === 'object' ? Object.keys(o) : [];
 }
-function getRequiredNestedInterface(obj) {
-    const result = Array.isArray(obj) ? [] : {};
+function getRequiredNestedInteface(obj) {
+    const result = {};
     if (typeof obj === 'object' && obj !== null) {
         for (let key in obj) {
             if (typeof obj[key] === 'object' && obj[key] !== null) {
                 if (obj[key].required) {
-                    result[key] = getRequiredNestedInterface(obj[key].required);
+                    result[key] = getRequiredNestedInteface(obj[key].required);
                 }
                 else if (obj[key].optional) {
                     result[key] = 'object';
                 }
                 else {
-                    return getRequiredNestedInterface(obj[key]);
+                    return getRequiredNestedInteface(obj[key]);
                 }
             }
             else {
@@ -35149,6 +33514,13 @@ const Arguments = Object.freeze({
     AddMessageClass: [
         'string'
     ],
+    AnalyticsControlEventAction: {
+        required: { eventCategory: 'string', eventAction: 'string', enable: 'boolean' }
+    },
+    AnalyticsStart: {
+        required: { serviceType: 'string', trackingID: 'string' },
+        optional: { serverUrl: 'string' }
+    },
     AssignViewToCompositeRenderer: {
         required: { remoteParticipants: 'number', viewId: 'string', viewStyle: 'string' }
     },
@@ -35219,33 +33591,11 @@ const Arguments = Object.freeze({
     EnableDebug: {
         required: { port: 'number', logFilter: 'string' }
     },
-    GetGoogleAnalyticsEventTable: {
+    GetAnalyticsEventTable: {
         required: { onGetAnalyticsEventTableCallback: 'function' }
-    },
-    GetProductInfo: {
-        required: {
-            productInfo: [],
-            supportedFeature: []
-        }
-    },
-    GetProductInfoAsync: {
-        required: {
-            onComplete: 'function'
-        }
-    },
-    GoogleAnalyticsControlEventAction: {
-        required: { eventCategory: 'string', eventAction: 'string', enable: 'boolean' }
     },
     HideView: {
         required: { viewId: 'string' }
-    },
-    InsightsNotifyEvent: {
-        required: { eventName: 'string' },
-        optional: { parameters: ['string'] }
-    },
-    InsightsNotifyApplicationEvent: {
-        required: { eventName: 'string' },
-        optional: { parameters: ['string'] }
     },
     PinParticipant: {
         required: { participant: 'object', pin: 'boolean' }
@@ -35272,8 +33622,6 @@ const Arguments = Object.freeze({
             onEnableVideoSimulcastChanged: 'function',
             onEnableTransportCcChanged: 'function',
             onEnableVidyoConnectorAPILoggingChanged: 'function',
-            onExtDataChanged: 'function',
-            onExtDataTypeChanged: 'function',
             onMaxReconnectAttemptsChanged: 'function',
             onParticipantLimitChanged: 'function',
             onPinnedParticipantDisplayCroppedChanged: 'function',
@@ -35281,10 +33629,8 @@ const Arguments = Object.freeze({
             onReconnectBackoffChanged: 'function',
             onShowStatisticsOverlayChanged: 'function',
             onStatisticsRefreshIntervalChanged: 'function',
-            onAudioContentHintChanged: 'function',
             onCameraContentHintChanged: 'function',
-            onWindowShareContentHintChanged: 'function',
-            onEnableGeolocationChanged: 'function',
+            onWindowShareContentHintChanged: 'function'
         }
     },
     RegisterConferenceModeEventListener: {
@@ -35362,9 +33708,6 @@ const Arguments = Object.freeze({
     RegisterVideoTileEventListener: {
         required: { onAdded: 'function', onRemoved: 'function', onStateUpdated: 'function' }
     },
-    RegisterCompositorViewChangeEventListener: {
-        required: { onChange: 'function' }
-    },
     SelectAudioContentShare: {
         required: { localMicrophone: 'object|null' }
     },
@@ -35420,9 +33763,9 @@ const Arguments = Object.freeze({
             enableTransportCc: 'boolean',
             enableVidyoConnectorAPILogging: 'boolean',
             extData: 'string',
-            extDataType: 'number|string',
+            extDataType: 'string',
             loggerURL: 'string',
-            onGoogleAnalyticsEventSent: 'function|null',
+            onAnalyticsEventSent: 'function|null',
             participantLimit: 'number|string',
             pinnedParticipantDisplayCropped: 'boolean',
             showStatisticsOverlay: 'boolean',
@@ -35430,11 +33773,8 @@ const Arguments = Object.freeze({
             enableAutoReconnect: 'boolean',
             maxReconnectAttempts: 'number|string',
             reconnectBackoff: 'number|string',
-            audioContentHint: 'string',
             cameraContentHint: 'string',
-            windowShareContentHint: 'string',
-            geolocationServiceURL: 'string',
-            enableGeolocation: 'boolean'
+            windowShareContentHint: 'string'
         }
     },
     SetCameraPrivacy: {
@@ -35479,22 +33819,6 @@ const Arguments = Object.freeze({
     SetPool: {
         required: { name: 'string' }
     },
-    SetProductInfo: {
-        required: {
-            productInfo: [{
-                    required: {
-                        name: 'string',
-                        value: 'string'
-                    }
-                }],
-            supportedFeature: [{
-                    required: {
-                        name: 'string',
-                        value: 'string'
-                    }
-                }]
-        }
-    },
     SetSpeakerPrivacy: {
         required: { privacy: 'boolean' }
     },
@@ -35522,18 +33846,12 @@ const Arguments = Object.freeze({
     ShowWindowSharePreview: {
         required: { preview: 'boolean' }
     },
-    StartGoogleAnalyticsService: {
-        required: { trackingID: 'string' }
-    },
-    StartInsightsService: {
-        required: { serverUrl: 'string' }
-    },
     UnraiseHand: {
         optional: { requestId: 'string' }
     }
 });
 
-},{}],148:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalStorageProvider = void 0;
@@ -35569,7 +33887,7 @@ class LocalStorageProvider {
 }
 exports.LocalStorageProvider = LocalStorageProvider;
 
-},{}],149:[function(require,module,exports){
+},{}],144:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocationProvider = void 0;
@@ -35657,7 +33975,7 @@ LocationProvider._actualLocation = null;
 LocationProvider._isLocationRequestEnabled = Constants.LocationConstraint;
 LocationProvider._watchId = null;
 
-},{"./Constants":138}],150:[function(require,module,exports){
+},{"./Constants":133}],145:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaDevicesProvider = void 0;
@@ -35668,7 +33986,7 @@ class MediaDevicesProvider {
 }
 exports.MediaDevicesProvider = MediaDevicesProvider;
 
-},{}],151:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const OperatingSystemInfoProvider_1 = require("./OperatingSystemInfoProvider");
@@ -35705,7 +34023,7 @@ const OperatingSystemInfoProvider_1 = require("./OperatingSystemInfoProvider");
     MediaStreamTrack.prototype.isWrapped = true;
 })();
 
-},{"./OperatingSystemInfoProvider":156}],152:[function(require,module,exports){
+},{"./OperatingSystemInfoProvider":151}],147:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServerShuttingDown = exports.ConferenceDestroyed = exports.Booted = exports.InvalidDisplayName = exports.ResourceDisabled = exports.ResourceLocked = exports.GuestAccessDisAllowed = exports.AllLinesInUse = exports.NoLicenseAvailable = exports.ResourceFull = exports.ErrorWhileConnecting = exports.ValidationErrorInParentRequiredFieldNameIsNotFound = exports.ValidationErrorInParentRequiredFieldIsNotFound = exports.TheViewStyleViewStyleIsNotSupported = exports.TheElementOfClassDoesntExist = exports.TheElementIdDoesntExist = exports.Terminated = exports.SignallingTransportError = exports.SignallingError = exports.NotImplemented = exports.NoSuchStream = exports.NoSuchParticipant = exports.NoResponse = exports.MiscRemoteError = exports.MiscLocalError = exports.MiscError = exports.MediaSessionTransportError = exports.MediaSessionError = exports.MediaSessionEnded = exports.MediaSessionAddingStreamError = exports.LocalMediaOperationNotPermitted = exports.InvalidToken = exports.IdCannotBeEmpty = exports.GetDisplayMediaIsNotSupported = exports.ErrorInSendTokenQuery = exports.ErrorInFindRoomOnServer = exports.Disconnected = exports.Disconnecting = exports.CouldNotParseString = exports.CouldNotGetWindowShareTrackBecauseUserCancelled = exports.CouldNotGetWindowShareTrack = exports.CouldNotGetVideoTrack = exports.CouldNotGetResponseFromMUC = exports.CouldNotGetAudioTrack = exports.ConnectionTimeout = exports.ConnectionLost = exports.ConnectionController = exports.ConferenceFailed = void 0;
@@ -35758,7 +34076,7 @@ exports.Booted = 'Booted from conference';
 exports.ConferenceDestroyed = 'Conference destroyed';
 exports.ServerShuttingDown = 'Server is shutting down';
 
-},{}],153:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotEqual = void 0;
@@ -35767,7 +34085,7 @@ function NotEqual(referenceValue, value, deviation) {
 }
 exports.NotEqual = NotEqual;
 
-},{}],154:[function(require,module,exports){
+},{}],149:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotImplemented = void 0;
@@ -35777,7 +34095,7 @@ function NotImplemented() {
 }
 exports.NotImplemented = NotImplemented;
 
-},{"./Messages":152}],155:[function(require,module,exports){
+},{"./Messages":147}],150:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 class ObjectUtils {
@@ -35879,13 +34197,12 @@ class ObjectUtils {
 }
 exports.default = ObjectUtils;
 
-},{}],156:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OperatingSystemInfoProvider = exports.OperatingSystem = void 0;
 const AssertExhaustiveSwitch_1 = require("./AssertExhaustiveSwitch");
 const Constants_1 = require("./Constants");
-const ua_parser_js_1 = require("ua-parser-js");
 var OperatingSystem;
 (function (OperatingSystem) {
     OperatingSystem["Android"] = "Android";
@@ -35958,13 +34275,13 @@ class OperatingSystemInfoProvider {
         return OperatingSystemInfoProvider._isFirefox;
     }
     static IsIOS() {
-        return /iPhone|iPod/.test(navigator.userAgent);
+        return /iPad|iPhone|iPod/.test(navigator.userAgent);
     }
     static IsIPadOS() {
         const TouchScreenPoints = 2;
-        return /iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints &&
+        return navigator.maxTouchPoints &&
             navigator.maxTouchPoints > TouchScreenPoints &&
-            /Macintosh/.test(navigator.userAgent));
+            /Macintosh/.test(navigator.userAgent);
     }
     static IsMobileOrTabletDevice() {
         return OperatingSystemInfoProvider.IsMobileDevice() || OperatingSystemInfoProvider.IsTabletDevice();
@@ -36065,9 +34382,7 @@ class OperatingSystemInfoProvider {
     static _checkAndroid() {
         const userAgent = navigator.userAgent.toLowerCase();
         const isMobile = /Android/i.test(userAgent);
-        const isTablet = /(android(?!.*mobile))/.test(userAgent) ||
-            (OperatingSystemInfoProvider._UAParserData?.device?.type === ua_parser_js_1.DEVICE.TABLET &&
-                OperatingSystemInfoProvider._UAParserData?.os?.name?.toLowerCase() === 'android');
+        const isTablet = /(android(?!.*mobile))/.test(userAgent);
         if (isTablet) {
             OperatingSystemInfoProvider._isAndroidTablet = true;
             OperatingSystemInfoProvider._isAndroidMobile = false;
@@ -36172,9 +34487,8 @@ class OperatingSystemInfoProvider {
     }
 }
 exports.OperatingSystemInfoProvider = OperatingSystemInfoProvider;
-OperatingSystemInfoProvider._UAParserData = (new ua_parser_js_1.UAParser()).getResult();
 
-},{"./AssertExhaustiveSwitch":134,"./Constants":138,"ua-parser-js":7}],157:[function(require,module,exports){
+},{"./AssertExhaustiveSwitch":129,"./Constants":133}],152:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PermissionProvider = void 0;
@@ -36188,7 +34502,7 @@ class PermissionProvider {
 }
 exports.PermissionProvider = PermissionProvider;
 
-},{}],158:[function(require,module,exports){
+},{}],153:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrettyTuple = exports.PrettyList = exports.PrettyNumberWithUnits = exports.PrettyNumber = exports.PrettyNumberBase = void 0;
@@ -36267,7 +34581,7 @@ class PrettyTuple {
 }
 exports.PrettyTuple = PrettyTuple;
 
-},{}],159:[function(require,module,exports){
+},{}],154:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RaceResolve = exports.ApplyTimeout = exports.PromiseTimeout = exports.MakePromiseWithCallback = void 0;
@@ -36322,7 +34636,7 @@ function RaceResolve(iterable) {
 }
 exports.RaceResolve = RaceResolve;
 
-},{"./Errors":142}],160:[function(require,module,exports){
+},{"./Errors":137}],155:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const Constants_1 = require("./Constants");
@@ -36480,13 +34794,10 @@ class RTCStatsReportHelper {
         }
         return 0;
     }
-    static GetCodecName(mimeType = '') {
-        return mimeType.split('/').at(-1);
-    }
 }
 exports.default = RTCStatsReportHelper;
 
-},{"./Constants":138}],161:[function(require,module,exports){
+},{"./Constants":133}],156:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReconnectAction = exports.ReconnectState = exports.AutoReconnectStartReasons = void 0;
@@ -36518,7 +34829,7 @@ var ReconnectAction;
     ReconnectAction["StartMedia"] = "VIDYO_RECONNECTACTION_StartMedia";
 })(ReconnectAction = exports.ReconnectAction || (exports.ReconnectAction = {}));
 
-},{"../../vidyo_connector_api/VidyoConnector":184}],162:[function(require,module,exports){
+},{"../../vidyo_connector_api/VidyoConnector":178}],157:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var OrientationType;
@@ -36536,15 +34847,10 @@ class ScreenInfoProvider {
         return window.screen.orientation.type === OrientationType.PortraitPrimary
             || window.screen.orientation.type === OrientationType.PortraitSecondary;
     }
-    static get Resolution() {
-        const width = screen.width * window.devicePixelRatio;
-        const height = screen.height * window.devicePixelRatio;
-        return { width, height };
-    }
 }
 exports.default = ScreenInfoProvider;
 
-},{}],163:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.update_runnels = exports.find_frame_size_range_in_mb = exports.maximum_frame_size_for_target_bitrate = exports.normalizeAOB = exports.MaxVideoSize = exports.ContentType = void 0;
@@ -36906,7 +35212,7 @@ function update_runnels(show_info, src_info, codec_type, AOB, max_frame_size_mb,
 }
 exports.update_runnels = update_runnels;
 
-},{}],164:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SizeObserver = void 0;
@@ -36924,7 +35230,7 @@ class SizeObserver {
 }
 exports.SizeObserver = SizeObserver;
 
-},{"./TimingProvider":168}],165:[function(require,module,exports){
+},{"./TimingProvider":163}],160:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatisticsExtention = void 0;
@@ -37013,20 +35319,19 @@ class StatisticsExtention {
         StatisticsExtention.UserStatistic.Id = `guest_${StatisticsExtention.EndpointStatistic.Id}`;
     }
     static supplementRoomStatistics() {
-        const cpuUsage = 15;
-        const maxPixelRate = 100;
-        const availableCpuPercent = 100;
-        const roomStats = StatisticsExtention.RoomStatistics;
-        roomStats.AvailableDecodeCpuPercent = availableCpuPercent;
-        roomStats.AvailableEncodeCpuPercent = availableCpuPercent;
-        roomStats.CpuUsage = cpuUsage;
-        roomStats.CurrentBandwidthDecodePixelRate = roomStats.AvailableDecodeBwPercent;
-        roomStats.CurrentBandwidthEncodePixelRate = roomStats.AvailableEncodeBwPercent;
-        roomStats.CurrentCpuDecodePixelRate = roomStats.AvailableDecodeCpuPercent;
-        roomStats.CurrentCpuEncodePixelRate = roomStats.AvailableEncodeCpuPercent;
-        roomStats.MaxDecodePixelRate = maxPixelRate;
-        roomStats.MaxEncodePixelRate = maxPixelRate;
-        roomStats.ParticipantGenerationStats = StatisticsExtention.getParticipantsGenerationStats();
+        let cpuUsage = 15;
+        let pixelRate = 100;
+        let availableCpuPercent = 100;
+        StatisticsExtention.RoomStatistics.AvailableDecodeCpuPercent = availableCpuPercent;
+        StatisticsExtention.RoomStatistics.AvailableEncodeCpuPercent = availableCpuPercent;
+        StatisticsExtention.RoomStatistics.CpuUsage = cpuUsage;
+        StatisticsExtention.RoomStatistics.CurrentBandwidthDecodePixelRate = pixelRate;
+        StatisticsExtention.RoomStatistics.CurrentBandwidthEncodePixelRate = pixelRate;
+        StatisticsExtention.RoomStatistics.CurrentCpuDecodePixelRate = pixelRate;
+        StatisticsExtention.RoomStatistics.CurrentCpuEncodePixelRate = pixelRate;
+        StatisticsExtention.RoomStatistics.MaxDecodePixelRate = pixelRate;
+        StatisticsExtention.RoomStatistics.MaxEncodePixelRate = pixelRate;
+        StatisticsExtention.RoomStatistics.ParticipantGenerationStats = StatisticsExtention.getParticipantsGenerationStats();
     }
     static calculateAudioBitsPerSample(sampleRate, baseLatency) {
         if (sampleRate && baseLatency) {
@@ -37047,7 +35352,7 @@ class StatisticsExtention {
 }
 exports.StatisticsExtention = StatisticsExtention;
 
-},{"../controllers/StreamController/LocalStreamController":51,"../models/MediaFormat":88,"../models/statistics/Statistics":130,"../utils/Constants":138}],166:[function(require,module,exports){
+},{"../controllers/StreamController/LocalStreamController":49,"../models/MediaFormat":86,"../models/statistics/Statistics":125,"../utils/Constants":133}],161:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 class StringUtils {
@@ -37115,7 +35420,7 @@ class StringUtils {
 }
 exports.default = StringUtils;
 
-},{}],167:[function(require,module,exports){
+},{}],162:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.synchronized = void 0;
@@ -37149,7 +35454,7 @@ function synchronized(tagName = DEFAULT_TAG) {
 }
 exports.synchronized = synchronized;
 
-},{}],168:[function(require,module,exports){
+},{}],163:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TimingProvider = void 0;
@@ -37186,7 +35491,7 @@ class TimingProvider {
 }
 exports.TimingProvider = TimingProvider;
 
-},{}],169:[function(require,module,exports){
+},{}],164:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DecodeUserName = void 0;
@@ -37201,7 +35506,7 @@ function DecodeUserName(token) {
 }
 exports.DecodeUserName = DecodeUserName;
 
-},{}],170:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserMediaProvider = void 0;
@@ -37213,7 +35518,6 @@ const Microphone_1 = require("../models/device/Microphone");
 const OperatingSystemInfoProvider_1 = require("./OperatingSystemInfoProvider");
 const Devices_1 = require("../../vidyo_simple_api/Devices");
 require("./MediaStreamTrackWrapper");
-const ScreenInfoProvider_1 = require("./ScreenInfoProvider");
 class UserMediaProvider {
     constructor(_vidyoCore) {
         this._vidyoCore = _vidyoCore;
@@ -37254,20 +35558,13 @@ class UserMediaProvider {
         });
     }
     GetVideoTrack(selection = true, constraints) {
-        let video = {
+        let video = constraints ? constraints : {
             width: Constants.DefaultLocalStreamWidth,
             height: Constants.DefaultLocalStreamHeight,
             frameRate: Constants.DefaultLocalStreamFrameRate
         };
-        if (constraints) {
-            Object.assign(video, constraints);
-        }
         let videoConstraints = UserMediaProvider._constraints.video ? { video } : { video: false };
         let retryCounter = 0;
-        if (video.frameRate) {
-            const fps = video.frameRate;
-            video.frameRate = { max: fps, ideal: fps };
-        }
         if (UserMediaProvider._constraints.video && selection instanceof Camera_1.Camera && selection.Id) {
             videoConstraints.video = Object.assign({}, video, {
                 deviceId: {
@@ -37312,7 +35609,7 @@ class UserMediaProvider {
                         }, UserMediaProvider.getVideoTrackRetryDelayMs);
                     });
                 }
-                return Promise.reject(err);
+                return null;
             });
         };
         return getVideoTrack(videoConstraints);
@@ -37369,27 +35666,13 @@ class UserMediaProvider {
     }
     _getDisplayMediaTrack() {
         return new Promise((resolve, reject) => {
-            let constraints = {};
-            constraints.video = {
-                frameRate: Constants.DefaultLocalShareStreamFrameRate
+            let constraints = {
+                video: {
+                    width: Constants.DefaultLocalShareStreamWidth,
+                    height: Constants.DefaultLocalShareStreamHeight,
+                    frameRate: Constants.DefaultLocalShareStreamFrameRate
+                }
             };
-            if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsSafari()) {
-                const screenResolution = ScreenInfoProvider_1.default.Resolution;
-                const screenAspectRatio = (screenResolution.width / screenResolution.height).toFixed(3);
-                const shareAspectRatio = (Constants.DefaultLocalShareStreamWidth / Constants.DefaultLocalShareStreamHeight).toFixed(3);
-                if (screenAspectRatio > shareAspectRatio) {
-                    const width = Math.min(Constants.DefaultLocalShareStreamWidth, screenResolution.width);
-                    constraints.video.width = { max: width };
-                }
-                else {
-                    const height = Math.min(Constants.DefaultLocalShareStreamHeight, screenResolution.height);
-                    constraints.video.height = { max: height };
-                }
-            }
-            else {
-                constraints.video.height = { max: Constants.DefaultLocalShareStreamHeight };
-                constraints.video.width = { max: Constants.DefaultLocalShareStreamWidth };
-            }
             const mediaDevices = MediaDevicesProvider_1.MediaDevicesProvider.GetMediaDevices();
             if ('getDisplayMedia' in mediaDevices) {
                 mediaDevices.getDisplayMedia(constraints).then((stream) => {
@@ -37418,7 +35701,7 @@ UserMediaProvider.defaultCameraDeviceID = '';
 UserMediaProvider.getVideoTrackRetriesLimit = 2;
 UserMediaProvider.getVideoTrackRetryDelayMs = 500;
 
-},{"../../vidyo_simple_api/Devices":187,"../models/device/Camera":101,"../models/device/Microphone":105,"./Constants":138,"./MediaDevicesProvider":150,"./MediaStreamTrackWrapper":151,"./Messages":152,"./OperatingSystemInfoProvider":156,"./ScreenInfoProvider":162}],171:[function(require,module,exports){
+},{"../../vidyo_simple_api/Devices":181,"../models/device/Camera":95,"../models/device/Microphone":99,"./Constants":133,"./MediaDevicesProvider":145,"./MediaStreamTrackWrapper":146,"./Messages":147,"./OperatingSystemInfoProvider":151}],166:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VideoPlaceholderTrack = void 0;
@@ -37489,7 +35772,7 @@ class VideoPlaceholderTrack {
 }
 exports.VideoPlaceholderTrack = VideoPlaceholderTrack;
 
-},{}],172:[function(require,module,exports){
+},{}],167:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VidyoDebugger = void 0;
@@ -37543,7 +35826,7 @@ VidyoDebugger.isEnabledAPI = {
     VidyoConnector: false
 };
 
-},{"../events/AdvancedSettingsEvents":57}],173:[function(require,module,exports){
+},{"../events/AdvancedSettingsEvents":55}],168:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VidyoInsightsProvider = void 0;
@@ -37553,9 +35836,6 @@ class VidyoInsightsProvider {
         this._url = _url;
         this._trackingID = _trackingID;
     }
-    get Url() {
-        return this._url;
-    }
     pushLogs(labels, logRecords, keepAlive) {
         if (!logRecords.length) {
             return Promise.resolve(false);
@@ -37564,10 +35844,10 @@ class VidyoInsightsProvider {
         const json = this._getJSON(values);
         return this._sendRequest(json, keepAlive);
     }
-    pushStats(labels, data) {
-        const values = this._getStatsValues(labels, data);
+    pushStats(labels, stats) {
+        const values = this._getStatsValues(labels, stats);
         const json = this._getJSON(values);
-        return this._sendRequest(json).then((response) => response.ok);
+        return this._sendRequest(json);
     }
     _getJSON(values) {
         return JSON.stringify({
@@ -37594,9 +35874,9 @@ class VidyoInsightsProvider {
             })
         ];
     }
-    _getStatsValues(labels, data) {
+    _getStatsValues(labels, stats) {
         return [
-            this._getValue(labels, data)
+            this._getValue(labels, stats)
         ];
     }
     _sendRequest(json, keepAlive) {
@@ -37613,7 +35893,7 @@ class VidyoInsightsProvider {
 }
 exports.VidyoInsightsProvider = VidyoInsightsProvider;
 
-},{"../controllers/LogController/LogController":39}],174:[function(require,module,exports){
+},{"../controllers/LogController/LogController":37}],169:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SOAPActions = void 0;
@@ -37677,7 +35957,7 @@ class VidyoPortalGuestService {
 }
 exports.default = VidyoPortalGuestService;
 
-},{}],175:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Get = void 0;
@@ -37718,7 +35998,7 @@ function Get({ url, headers, timeout, validResponseCodesRange }) {
 }
 exports.Get = Get;
 
-},{}],176:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VidyoClientLib = void 0;
@@ -37742,149 +36022,7 @@ window['VidyoClientLib'] = {
     VidyoClient: VidyoClientLib.VidyoClient
 };
 
-},{"./vidyo_connector_api/VidyoConnector":184,"./vidyo_simple_api/VidyoSimple":195}],177:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DragManager = void 0;
-class DragManager {
-    constructor() {
-        this._view = null;
-        this._parent = null;
-        this._dragTarget = null;
-        this._handlePoint = null;
-        this._isDragging = false;
-        this._onMouseDown = this._onMouseDown.bind(this);
-        this._onMouseUp = this._onMouseUp.bind(this);
-        this._onMouseMove = this._onMouseMove.bind(this);
-    }
-    ApplyDragToTarget(view, targetSelector) {
-        if (!view || this._view)
-            return;
-        this._view = view;
-        this._parent = this._view?.parentElement;
-        this._dragTarget = targetSelector ? this._view.querySelector(targetSelector) : this._view;
-        this._dragTarget.onmousedown = this._onMouseDown;
-        this._dragTarget.ontouchstart = this._onMouseDown;
-    }
-    ResetData() {
-        this.ResetPosition();
-        this._removeEventListeners();
-        this._removeTargetListeners();
-        this._view = null;
-        this._parent = null;
-        this._dragTarget = null;
-        this._handlePoint = null;
-        this._isDragging = false;
-        this._dragStartMouseX = null;
-        this._dragStartMouseY = null;
-        this._panelStartX = null;
-        this._panelStartY = null;
-        this._panelHeight = null;
-        this._panelWidth = null;
-    }
-    ResetPosition() {
-        if (this._view) {
-            this._view.removeAttribute('style');
-        }
-    }
-    get HasTarget() {
-        return !!this._view;
-    }
-    _removeTargetListeners() {
-        if (this._dragTarget) {
-            this._dragTarget.onmousedown = null;
-            this._dragTarget.ontouchstart = null;
-        }
-    }
-    _onMouseUp(event) {
-        event.stopPropagation();
-        if (!event.changedTouches) {
-            event.preventDefault();
-        }
-        this._removeEventListeners();
-        this._isDragging = false;
-        this._handlePoint = null;
-    }
-    _onMouseDown(event) {
-        event.stopPropagation();
-        if (!event.changedTouches) {
-            event.preventDefault();
-        }
-        this._addEventListeners();
-        this._isDragging = true;
-        this._handlePoint = {
-            x: event.pageX ?? event.changedTouches[0]?.pageX,
-            y: event.pageY ?? event.changedTouches[0]?.pageY
-        };
-        const { x: elX, y: elY, height, width, } = this._view.getBoundingClientRect();
-        const { x: parentX, y: parentY } = this._parent.getBoundingClientRect?.() || {};
-        this._dragStartMouseX = event.pageX ?? event.changedTouches[0]?.pageX;
-        this._dragStartMouseY = event.pageY ?? event.changedTouches[0]?.pageY;
-        this._panelStartX = elX - (parentX ?? 0);
-        this._panelStartY = elY - (parentY ?? 0);
-        this._panelHeight = height;
-        this._panelWidth = width;
-    }
-    _onMouseMove(event) {
-        if (this._handlePoint && this._isDragging && this._parent) {
-            event.stopPropagation();
-            if (!event.changedTouches) {
-                event.preventDefault();
-            }
-            const containerWidth = this._parent.offsetWidth;
-            const containerHeight = this._parent.offsetHeight;
-            const viewHeight = this._view.offsetHeight;
-            const viewWidth = this._view.offsetWidth;
-            const eventX = event.pageX ?? event.changedTouches[0]?.pageX;
-            const eventY = event.pageY ?? event.changedTouches[0]?.pageY;
-            const xCoord = this._panelStartX + (eventX - this._dragStartMouseX) > 0
-                ? this._panelWidth + this._panelStartX + (eventX - this._dragStartMouseX) <
-                    this._parent.offsetWidth
-                    ? this._panelStartX + (eventX - this._dragStartMouseX)
-                    : this._view.offsetLeft
-                : 0;
-            const yCoord = this._panelStartY + (eventY - this._dragStartMouseY) > 0
-                ? this._panelHeight + this._panelStartY + (eventY - this._dragStartMouseY) <
-                    this._parent.offsetHeight
-                    ? this._panelStartY + (eventY - this._dragStartMouseY)
-                    : this._view.offsetTop
-                : 0;
-            const xMedian = containerWidth / 2;
-            const yMedian = containerHeight / 2;
-            if (xCoord + (viewWidth / 2) <= xMedian) {
-                this._view.style.left = `${xCoord}px`;
-                this._view.style.right = `auto`;
-            }
-            else {
-                this._view.style.right = `${containerWidth - viewWidth - xCoord}px`;
-                this._view.style.left = `auto`;
-            }
-            if (yCoord + (viewHeight / 2) <= yMedian) {
-                this._view.style.top = `${yCoord}px`;
-                this._view.style.bottom = `auto`;
-            }
-            else {
-                this._view.style.bottom = `${containerHeight - viewHeight - yCoord}px`;
-                this._view.style.top = `auto`;
-            }
-        }
-    }
-    _addEventListeners() {
-        document.addEventListener("mousemove", this._onMouseMove);
-        document.addEventListener("mouseup", this._onMouseUp);
-        document.addEventListener("touchmove", this._onMouseMove);
-        document.addEventListener("touchend", this._onMouseUp);
-    }
-    _removeEventListeners() {
-        document.removeEventListener("mousemove", this._onMouseMove);
-        document.removeEventListener("mouseup", this._onMouseUp);
-        document.removeEventListener("touchmove", this._onMouseMove);
-        document.removeEventListener("touchend", this._onMouseUp);
-    }
-}
-exports.DragManager = DragManager;
-
-},{}],178:[function(require,module,exports){
+},{"./vidyo_connector_api/VidyoConnector":178,"./vidyo_simple_api/VidyoSimple":189}],172:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RendererBase = void 0;
@@ -37916,7 +36054,6 @@ window.customElements.define('fecc-controls-view', FeccControlsView_1.default);
 class RendererBase {
     constructor(vidyoCore) {
         this.audioLevelMaxThreshold = -20;
-        this.audioLevelMinThreshold = -90;
         this.audioLevelDynamicRange = 70;
         this._streamPopups = {};
         this._energyLevelCanvasContext = {};
@@ -37949,11 +36086,8 @@ class RendererBase {
             requestAnimationFrame(() => this._onStatisticsUpdate());
         });
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateLocalViewLabel, EventDispatcher.RenderListeners, () => this._updateLocalViewLabel());
-        this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateLocalViewTag, EventDispatcher.RenderListeners, () => this._updateLocalViewTag());
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateWindowShareViewLabel, EventDispatcher.RenderListeners, () => this._updateShareWindowLocalViewLabel('window'));
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateMonitorShareViewLabel, EventDispatcher.RenderListeners, () => this._updateShareWindowLocalViewLabel('monitor'));
-        this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateWindowShareEndLabel, EventDispatcher.RenderListeners, () => this._updateShareWindowLocalEndLabel('window'));
-        this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateMonitorShareEndLabel, EventDispatcher.RenderListeners, () => this._updateShareWindowLocalEndLabel('monitor'));
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateCameraControl, EventDispatcher.RenderListeners, (payload) => this._onUpdateCameraControl(payload));
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateSource, EventDispatcher.RenderListeners, (streamId) => this._onUpdateStreamSource(streamId));
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.CameraListChanged, EventDispatcher.RenderListeners, (payload) => this._onCameraListChanged(payload));
@@ -37975,23 +36109,11 @@ class RendererBase {
         let streamId = stream.Id;
         const isRearCamera = stream.GetVideoTracks()[0] && stream.GetVideoTracks()[0].Settings.facingMode === 'environment';
         let name = options.name || '';
-        let tag = options.tag || '';
         let htmlEntityAsFirstSymbol = name.match(/^&#?[a-z0-9]{2,7};/gi);
-        const nameParts = name.split(' ');
-        let placeholderLetter = '';
-        if (nameParts.length >= 2) {
-            const htmlEntityAsFirstSymbol1 = nameParts[0].match(/^&#?[a-z0-9]{2,7};/gi);
-            const htmlEntityAsFirstSymbol2 = nameParts[1].match(/^&#?[a-z0-9]{2,7};/gi);
-            const firstLetter = htmlEntityAsFirstSymbol1 ? htmlEntityAsFirstSymbol1[0] : (nameParts[0][0] || '');
-            const secondLetter = htmlEntityAsFirstSymbol2 ? htmlEntityAsFirstSymbol2[0] : (nameParts[1][0] || '');
-            placeholderLetter = `${firstLetter}${secondLetter}`;
-        }
-        else {
-            placeholderLetter = htmlEntityAsFirstSymbol ? htmlEntityAsFirstSymbol[0] : (name[0] || '');
-        }
+        let placeholderLetter = htmlEntityAsFirstSymbol ? htmlEntityAsFirstSymbol[0] : (name[0] || '');
         let templateOptions = {
             name: name,
-            placeholderLetter: placeholderLetter.toLocaleUpperCase(),
+            placeholderLetter: placeholderLetter,
             updateGeneration: (options.updateGeneration || Infinity).toString(),
             participantId: `${participantId}`,
             streamId: `${streamId}`,
@@ -37999,8 +36121,7 @@ class RendererBase {
             trackId: `${streamId}-track`,
             trackType: isLocal ? 'local-track' : 'remote-track',
             displayCroppedText: options.displayCropped ? 'displayCropped' : '',
-            allowZoomText: options.allowZoom ? 'allowZoom' : '',
-            tag: tag
+            allowZoomText: options.allowZoom ? 'allowZoom' : ''
         };
         let div = document.createElement('div');
         div.innerHTML = StringUtils_1.default.Format(template, templateOptions);
@@ -38011,9 +36132,7 @@ class RendererBase {
             if (isPinned) {
                 element.classList.add('pinned-video');
             }
-            if (options.displayCropped) {
-                this._attachDragEventsToElement(element);
-            }
+            this._attachDragEventsToElement(element);
             let statsOverlay = document.getElementById('vidyo-global-stats-overlay');
             if (statsOverlay) {
                 container.insertBefore(element, statsOverlay);
@@ -38045,7 +36164,7 @@ class RendererBase {
                     !navigator.userAgent.includes('Chrome')) {
                     videoElement.setAttribute('playsinline', 'true');
                 }
-                if (isLocal && isRearCamera) {
+                if (isLocal && isRearCamera && OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileOrTabletDevice()) {
                     videoElement.classList.add('flip-back-video');
                 }
                 videoElement.classList.add('video-loading');
@@ -38075,7 +36194,7 @@ class RendererBase {
                     let audioStream;
                     if (isLocal) {
                         audioStream = this._vidyoCore.Controllers.LocalStreamController.MicrophoneAudioStrem;
-                        audioMuted = !this._vidyoCore.Controllers.LocalStreamController.IsAudioEnabled();
+                        audioMuted = this._vidyoCore.Controllers.DeviceController.GetAudioMuteState();
                     }
                     else {
                         const roStream = this._vidyoCore.Controllers.RemoteStreamController.TryGetParticipantAudioStream(participantId);
@@ -38125,7 +36244,7 @@ class RendererBase {
         let maxDeltaX = 0;
         let maxDeltaY = 0;
         let mouseDown = () => {
-            let isApplication = !!element.classList.contains('pinned-video') || !!element.classList.contains('application-type');
+            let isApplication = !!element.closest('.application-grid');
             if (isApplication) {
                 return;
             }
@@ -38591,7 +36710,7 @@ class RendererBase {
             applicationWindow.document.head.appendChild(style);
             const videoElement = undockedElement.querySelector('video');
             applicationWindow.document.body.appendChild(undockedElement);
-            const dockImg = undockedElement.querySelector('.popup-application img');
+            const dockImg = undockedElement.querySelector('.popup-application');
             dockImg.src = Templates.dockSVGImage;
             const statsOverlay = undockedElement.querySelector('.stats-overlay');
             const closeSafely = () => {
@@ -38615,12 +36734,6 @@ class RendererBase {
                     ];
                     const formattedStatisticLines = this._statisticsToFormattedHTML(shareStatistics, excludeStatisticTypes);
                     statsOverlay.innerHTML = StringUtils_1.default.Format(Templates.statisticsBlock, { lines: formattedStatisticLines });
-                }
-            };
-            const onViewLabelUpdate = (options) => {
-                const wrapper = undockedElement.querySelector('.video-display-name-wrapper');
-                if (wrapper) {
-                    wrapper.classList.toggle('label-hidden', !options.showLabel);
                 }
             };
             const notifyTileAdded = (element, isUndocked) => {
@@ -38649,7 +36762,6 @@ class RendererBase {
                 notifyTileAdded(undockedElement, true);
                 this._onRecheckEachVideoSize();
                 this._vidyoCore.EventDispatcher.on(RenderEvents.Events.StatisticsUpdate, EventDispatcher.RenderListeners, onStatsUpdate);
-                this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateViewLabel, EventDispatcher.RenderListeners, onViewLabelUpdate);
                 this._vidyoCore.EventDispatcher.once(ConnectionEvents.Events.Disconnecting, EventDispatcher.RenderListeners, closeSafely);
             };
             loadTimeout = window.setTimeout(onLoadHandler, 1000);
@@ -38663,7 +36775,6 @@ class RendererBase {
                 applicationWindow.onbeforeunload = null;
                 applicationWindow.onpagehide = null;
                 this._vidyoCore.EventDispatcher.off(RenderEvents.Events.StatisticsUpdate, onStatsUpdate);
-                this._vidyoCore.EventDispatcher.off(RenderEvents.Events.UpdateViewLabel, onViewLabelUpdate);
                 notifyTileRemoved(undockedElement);
                 if (this._streamPopups[streamId]) {
                     delete this._streamPopups[streamId];
@@ -38672,10 +36783,8 @@ class RendererBase {
                     container.appendChild(element);
                     notifyTileAdded(element, false);
                     let video = element.querySelector('video');
-                    if (video && stream.IsActive) {
-                        video.play().catch((err) => {
-                            this._vidyoCore.Controllers.LogController.LogError(() => `Unable to play a video. ${err}`);
-                        });
+                    if (video) {
+                        video.play();
                     }
                     this._onRecheckEachVideoSize();
                     this._vidyoCore.EventDispatcher.emitAsync(RenderEvents.Events.Update);
@@ -39005,9 +37114,7 @@ class RendererBase {
         if (this._energyLevelCanvasContext[contextId]) {
             const { canvas, canvasContext } = this._energyLevelCanvasContext[contextId];
             if (canvas && canvasContext) {
-                let energyLevel = Math.max(audioLevel, this.audioLevelMinThreshold);
-                energyLevel = Math.min(energyLevel, this.audioLevelMaxThreshold) - this.audioLevelMinThreshold;
-                const volume = energyLevel / this.audioLevelDynamicRange;
+                const volume = 1 + (audioLevel - this.audioLevelMaxThreshold) / this.audioLevelDynamicRange;
                 canvasContext.clearRect(0, 0, canvas.width, canvas.height);
                 canvasContext.fillRect(0, 0, canvas.width * volume, canvas.height);
             }
@@ -39017,34 +37124,18 @@ class RendererBase {
         const preview = this._vidyoCore.Controllers.LocalStreamController.CameraVideoStream;
         const container = this._parent.querySelector(`[data-stream-id='${preview.Id}']`);
         const selectedCamera = this._vidyoCore.Controllers.DeviceController.GetSelectedDevices().Camera;
-        const localParticipant = this._vidyoCore.Controllers.ParticipantController.GetLocalParticipant();
-        let previewLabel = this._vidyoCore.Controllers.UserController.UserDisplayName() || (localParticipant || {})['Name'] || 'Preview';
-        if (typeof selectedCamera !== 'boolean' && selectedCamera.PreviewLabel) {
+        let previewLabel = 'Preview';
+        if (typeof selectedCamera !== 'boolean') {
             previewLabel = selectedCamera.PreviewLabel;
         }
         if (container) {
-            const label = container.querySelector(`.video-display-name .video-display-name-main`);
+            const label = container.querySelector(`.video-display-name span`);
             if (label) {
                 label.innerHTML = StringUtils_1.default.toSecureString(previewLabel);
             }
             const placeholder = container.querySelector(`div.text`);
             if (placeholder) {
                 placeholder.innerHTML = StringUtils_1.default.toSecureString(previewLabel)[0];
-            }
-        }
-    }
-    _updateLocalViewTag() {
-        const preview = this._vidyoCore.Controllers.LocalStreamController.CameraVideoStream;
-        const container = this._parent.querySelector(`[data-stream-id='${preview.Id}']`);
-        const selectedCamera = this._vidyoCore.Controllers.DeviceController.GetSelectedDevices().Camera;
-        let previewTag = null;
-        if (typeof selectedCamera !== 'boolean' && selectedCamera.PreviewTag) {
-            previewTag = selectedCamera.PreviewTag;
-        }
-        if (container) {
-            const tag = container.querySelector(`.video-display-name .video-display-name-tag`);
-            if (tag && previewTag) {
-                tag.innerHTML = StringUtils_1.default.toSecureString(previewTag);
             }
         }
     }
@@ -39061,32 +37152,13 @@ class RendererBase {
         }
         const container = this._parent.querySelector(`[data-stream-id='${preview.Id}']`);
         if (container) {
-            const label = container.querySelector(`.video-display-name .video-display-name-main`);
+            const label = container.querySelector(`.video-display-name span`);
             if (label) {
                 label.innerHTML = StringUtils_1.default.toSecureString(selectedWindowShareLabel);
             }
             const placeholder = container.querySelector(`div.text`);
             if (placeholder) {
                 placeholder.innerHTML = StringUtils_1.default.toSecureString(selectedWindowShareLabel)[0];
-            }
-        }
-    }
-    _updateShareWindowLocalEndLabel(type) {
-        let preview;
-        let endLabel;
-        if (type === 'window') {
-            preview = this._vidyoCore.Controllers.LocalStreamController.WindowShareStream;
-            endLabel = this._vidyoCore.Controllers.DeviceController.GetWindowShareEndLabel();
-        }
-        else {
-            preview = this._vidyoCore.Controllers.LocalStreamController.MonitorShareStream;
-            endLabel = this._vidyoCore.Controllers.DeviceController.GetMonitorShareEndLabel();
-        }
-        const container = this._parent.querySelector(`[data-stream-id='${preview.Id}']`);
-        if (container) {
-            const label = container.querySelector(`.end-share`);
-            if (label) {
-                label.innerHTML = StringUtils_1.default.toSecureString(endLabel);
             }
         }
     }
@@ -39116,7 +37188,7 @@ class RendererBase {
 }
 exports.RendererBase = RendererBase;
 
-},{"../core/events/AdvancedSettingsEvents":57,"../core/events/AnalyticsEvents":58,"../core/events/ConnectionEvents":61,"../core/events/DeviceEvents":62,"../core/events/EventDispatcher":63,"../core/events/LogEvents":64,"../core/events/MicrophoneEnergyEvents":66,"../core/events/RenderEvents":70,"../core/models/Participant":90,"../core/models/RendererTypes":93,"../core/models/VideoResolution":97,"../core/utils/Constants":138,"../core/utils/NotImplemented":154,"../core/utils/OperatingSystemInfoProvider":156,"../core/utils/SizeObserver":164,"../core/utils/StringUtils":166,"../core/utils/TimingProvider":168,"../vidyo_simple_api/Devices":187,"./Templates":180,"./components/FeccControlsView":181,"async":2}],179:[function(require,module,exports){
+},{"../core/events/AdvancedSettingsEvents":55,"../core/events/AnalyticsEvents":56,"../core/events/ConnectionEvents":59,"../core/events/DeviceEvents":60,"../core/events/EventDispatcher":61,"../core/events/LogEvents":62,"../core/events/MicrophoneEnergyEvents":64,"../core/events/RenderEvents":68,"../core/models/Participant":88,"../core/models/RendererTypes":90,"../core/models/VideoResolution":94,"../core/utils/Constants":133,"../core/utils/NotImplemented":149,"../core/utils/OperatingSystemInfoProvider":151,"../core/utils/SizeObserver":159,"../core/utils/StringUtils":161,"../core/utils/TimingProvider":163,"../vidyo_simple_api/Devices":181,"./Templates":174,"./components/FeccControlsView":175,"async":2}],173:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Type = exports.CreateRenderer = void 0;
@@ -39144,26 +37216,15 @@ function CreateRenderer(viewId, viewStyle, vidyoCore) {
 }
 exports.CreateRenderer = CreateRenderer;
 
-},{"../core/models/RendererTypes":93,"../core/utils/Messages":152,"../core/utils/StringUtils":166,"./RendererBase":178,"./composite/VidyoRenderer":182,"./custom/CustomVidyoRenderer":183}],180:[function(require,module,exports){
+},{"../core/models/RendererTypes":90,"../core/utils/Messages":147,"../core/utils/StringUtils":161,"./RendererBase":172,"./composite/VidyoRenderer":176,"./custom/CustomVidyoRenderer":177}],174:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.streamPopupStyle = exports.statisticsBlockLine = exports.statisticsBlock = exports.customTrackTemplate = exports.trackTemplate = exports.feccSVGImage = exports.pinPNGIcon = exports.undockSVGImage = exports.dockSVGImage = exports.containerTemplate = void 0;
+exports.streamPopupStyle = exports.compositeLayoutGridSplitStyle = exports.compositeLayoutStyleSpaceBeforeVideo = exports.compositeLayoutStyle = exports.compositeLayoutDefaultStyle = exports.statisticsBlockLine = exports.statisticsBlock = exports.customTrackTemplate = exports.trackTemplate = exports.feccSVGImage = exports.pinPNGIcon = exports.undockSVGImage = exports.dockSVGImage = exports.containerTemplate = void 0;
+const AssertExhaustiveSwitch_1 = require("../core/utils/AssertExhaustiveSwitch");
 exports.containerTemplate = `<div class='vidyo-rendering-container'>
-  <div class='media-grid video-grid' data-direction='horizontal'></div>
-  <div class='gallery-control gallery-control-top hide'></div>
-  <div class='gallery-control gallery-control-bottom hide'></div>
-  <div class='grid-toggle'>
-    <div class='grid-toggle-gallery'>
-      <span></span>
-      <span></span>
-    </div>
-    <div class='grid-toggle-grid active'>
-      <span></span>
-      <span></span>
-      <span></span>
-      <span></span>
-    </div>
-  </div>
+  <style></style>
+  <div class='media-grid video-grid'></div>
+  <div class='media-grid application-grid'></div>
  </div>`;
 exports.dockSVGImage = `data:image/svg+xml;utf8,
   <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
@@ -39220,14 +37281,12 @@ exports.trackTemplate = `<div
   class='video-container <%= trackType %> <%= displayCroppedText %> <%= allowZoomText %>'>
     <div class='video-overlay'>
       <div class='video-control-views-wrapper'>
-        <span class='end-share'>End Share</span>
         <div class='tile-control-view stats-overlay hide'></div>
         <fecc-controls-view class='tile-control-view fecc-controls hide'></fecc-controls-view>
       </div>
       <div class='video-display-name-wrapper'>
         <div class='video-display-name'>
-          <span class='video-display-name-main'><%= name %></span>
-          <span class='video-display-name-tag'><%= tag %></span>
+          <span><%= name %></span>
         </div>
         <div class='video-tile-controls'>
           <div class='tile-control pin-participant hide'><img src='${exports.pinPNGIcon}'/></div>
@@ -39241,9 +37300,7 @@ exports.trackTemplate = `<div
         <video id='<%= trackId %>' autoplay muted playsinline>
         </video>
         <div class='video-placeholder'><div class='text'><%= placeholderLetter %></div></div>
-        <div class="popup-application hide">
-          <img src='${exports.undockSVGImage}' />
-        </div>
+        <img src='${exports.undockSVGImage}' class='popup-application hide' />
       </div>
     </div>
  </div>`;
@@ -39257,6 +37314,58 @@ exports.statisticsBlock = `<ul class='statistics-list'>
 exports.statisticsBlockLine = `<li class='statistics-line'>
   <span class='statistics-key'><%= statKey %></span>: <span class='statistics-value'><%= statValue %></span>
 </li>`;
+exports.compositeLayoutDefaultStyle = `
+.media-grid {
+  grid-template-columns: 1fr, 1fr;
+  grid-template-rows: 1fr;
+}`;
+exports.compositeLayoutStyle = `
+.media-grid<%= scope %> {
+  grid-template-columns: repeat(calc(<%= columns %> * 2), 1fr);
+  grid-template-rows: repeat(<%= rows %>, 1fr);
+}`;
+exports.compositeLayoutStyleSpaceBeforeVideo = `
+.media-grid<%= scope %> .video-container:nth-of-type(<%= index %>) {
+  grid-column-start: 2;
+}`;
+const compositeLayoutGridSplitStyle = (splitType, videoGridLayoutColumns) => {
+    switch (splitType) {
+        case "VideoOnly":
+            return `
+.vidyo-rendering-container {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "video";
+}`;
+        case "HorizontalSplit":
+            return `
+.vidyo-rendering-container {
+  grid-template-columns: ` + (videoGridLayoutColumns > 1 ? '7fr 3fr;' : '4fr 1fr;') + `
+  grid-template-rows: 1fr;
+  grid-template-areas: "application video";
+}`;
+        case "VerticalSplit":
+            return `
+.vidyo-rendering-container {
+  grid-template-columns: 1fr;
+  grid-template-rows: 4fr 1fr;
+  grid-template-areas:
+    "application"
+    "video";
+}`;
+        case "ApplicatonOnly":
+            return `
+        .vidyo-rendering-container {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr;
+          grid-template-areas: "application";
+        }`;
+        default:
+            (0, AssertExhaustiveSwitch_1.assertExhaustive)(splitType);
+            break;
+    }
+};
+exports.compositeLayoutGridSplitStyle = compositeLayoutGridSplitStyle;
 exports.streamPopupStyle = `
 body {
   height: 100%;
@@ -39336,27 +37445,26 @@ video {
   display: flex;
   flex-direction: row;
   justify-content: space-around;
+  margin: 3px 0px 12px 0px;
+  padding: 0 6px;
+  box-sizing: border-box;
   align-items: center;
-  z-index: 2;
-  margin: 0 -2px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 3;
+  min-width: 3%;
   pointer-events: all;
+  z-index: 3;
 }
 
 .tile-control {
   justify-content: center;
   align-items: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
+  min-height: 22px;
+  min-width: 22px;
+  width: 1.65vw;
+  height: 1.65vw;
   cursor: pointer;
+  opacity: 0.5;
   -webkit-tap-highlight-color: transparent;
   outline: none;
-  background-color: rgba(0, 0, 0, 0.6);
-  margin: 0 2px;
-  border-radius: 2px
 }
 
 .tile-control:hover {
@@ -39370,37 +37478,27 @@ video {
 
 .video-display-name-wrapper {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px;
-  overflow: hidden;
+  background: #0000003F;
 }
 
 .video-display-name {
+  width: 100%;
+  justify-content: left;
+  word-break: break-all;
   color: white;
-  z-index: 1;
-  margin: 0 10px 0 0;
-  padding: 0;
+  opacity: 0.25;
+  z-index: 2;
+}
+
+.video-display-name span {
   display: flex;
   align-items: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 18px;
-}
-
-.video-display-name-main {
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 3px 6px;
-  border-radius: 2px;
-  display: block;
-  font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.video-display-name span:empty {
-  display: none;
+  min-height: 22pt;
+  font-size: 1.65vw;
+  margin: 3px 3% 12px 3%;
+  word-break: break-all;
 }
 
 .video-wrapper {
@@ -39438,23 +37536,12 @@ video {
 }
 
 .popup-application {
-  bottom: 45px;
-  left: 10px;
+  bottom: 60px;
+  left: 60px;
   position: absolute;
   width: 50px;
   height: 50px;
   z-index: 10;
-  border-radius: 10px;
-  background-color: rgba(0, 0, 0, 0.6);
-}
-
-.popup-application img {
-  width: 25px;
-  object-fit: contain;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
 }
 
 .volume-indicator {
@@ -39465,12 +37552,12 @@ video {
   display: none;
 }
 
-[hidden], .label-hidden, .hide {
+[hidden], .hide {
   display: none;
 }
 `;
 
-},{}],181:[function(require,module,exports){
+},{"../core/utils/AssertExhaustiveSwitch":129}],175:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FeccControlAction = void 0;
@@ -39684,7 +37771,7 @@ class FeccControlsView extends HTMLElement {
 }
 exports.default = FeccControlsView;
 
-},{}],182:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 "use strict";
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -39693,12 +37780,10 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VidyoRenderer = exports.compositorViewType = void 0;
+exports.VidyoRenderer = void 0;
 const EventDispatcher = require("../../core/events/EventDispatcher");
 const Messages = require("../../core/utils/Messages");
 const RenderEvents = require("../../core/events/RenderEvents");
-const ParticipantEvents = require("../../core/events/ParticipantEvents");
-const StreamEvents = require("../../core/events/StreamEvents");
 const Templates = require("../Templates");
 const Participant_1 = require("../../core/models/Participant");
 const RendererBase_1 = require("../RendererBase");
@@ -39712,13 +37797,6 @@ const TrackMetaDataProvider_1 = require("../../core/controllers/StreamController
 const Constants = require("../../core/utils/Constants");
 const Decorators_1 = require("../../core/utils/Decorators");
 const AssertExhaustiveSwitch_1 = require("../../core/utils/AssertExhaustiveSwitch");
-const DragManager_1 = require("../DragManager");
-const LocalStorageProvider_1 = require("../../core/utils/LocalStorageProvider");
-var compositorViewType;
-(function (compositorViewType) {
-    compositorViewType["GRID"] = "GRID";
-    compositorViewType["GALLERY"] = "GALLERY";
-})(compositorViewType = exports.compositorViewType || (exports.compositorViewType = {}));
 class VidyoRenderer extends RendererBase_1.RendererBase {
     constructor(vidyoCore) {
         super(vidyoCore);
@@ -39726,17 +37804,8 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
         this._showViewControls = true;
         this._viewLabel = true;
         this._viewMeters = true;
-        this._loudestParticipant = null;
-        this._compositorViewType = compositorViewType.GRID;
-        this._applicationsCount = 0;
-        this._videosCount = 0;
-        this._isShowLocalShareAsVideoType = false;
-        this._localPreviewDragManager = new DragManager_1.DragManager();
-        this._savedViewType = LocalStorageProvider_1.LocalStorageProvider.Get('VidyoCore::SelectedCompositorView');
         this._onResize = () => {
             setTimeout(() => void this._onUpdate(undefined));
-            this._setContainerViewDirection();
-            this._localPreviewDragManager.ResetPosition();
         };
     }
     CreateView(viewId) {
@@ -39751,21 +37820,12 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateViewLabel, EventDispatcher.CompositeRenderListeners, (payload) => this._updateViewLabel(payload));
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateAudioMeters, EventDispatcher.CompositeRenderListeners, (payload) => this._updateAudioMeters(payload));
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.UpdateVideoTileControls, EventDispatcher.CompositeRenderListeners, (payload) => this._updateVideoTileControls(payload));
-        this._vidyoCore.EventDispatcher.on(ParticipantEvents.Events.LoudestParticipantChanged, EventDispatcher.CompositeRenderListeners, (payload) => this._handleLoudestParticipantChange(payload));
-        this._vidyoCore.EventDispatcher.on(ParticipantEvents.Events.DynamicParticipantChanged, EventDispatcher.CompositeRenderListeners, (payload) => this._handleDynamicParticipantChanged(payload));
-        this._vidyoCore.EventDispatcher.on(StreamEvents.Events.LocalWindowShareDeselected, EventDispatcher.CompositeRenderListeners, () => this._localShareEndHandler());
-        this._vidyoCore.EventDispatcher.on(RenderEvents.Events.CompositorSetGalleryView, EventDispatcher.CompositeRenderListeners, () => this.setGalleryView(true));
-        this._vidyoCore.EventDispatcher.on(RenderEvents.Events.CompositorSetGridView, EventDispatcher.CompositeRenderListeners, () => this.setGridView(true));
     }
     Destroy() {
         super.Destroy();
         this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher.CompositeRenderListeners);
         this._removeAllElements();
         window.removeEventListener('resize', this._onResize);
-    }
-    _showLocalShareAsVideoType(show) {
-        this._isShowLocalShareAsVideoType = show;
-        this._onUpdate(undefined);
     }
     _createParent(viewId) {
         if (viewId) {
@@ -39781,132 +37841,6 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
     _isAudioMeterDisabled() {
         return !this._viewMeters;
     }
-    _localShareEndHandler() {
-        this._showLocalShareAsVideoType(true);
-    }
-    _calculateGalleryView(container, grid, topButton, bottomButton) {
-        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice())
-            return;
-        const _container = container || this._getOrCreateContainer();
-        const _grid = grid || _container.querySelector('.media-grid');
-        const _topButton = topButton || _container.querySelector('.gallery-control-top');
-        const _bottomButton = bottomButton || _container.querySelector('.gallery-control-bottom');
-        if (_grid.scrollHeight - _grid.clientHeight <= _grid.scrollTop + 10) {
-            _bottomButton.classList.add('hide');
-        }
-        else {
-            _bottomButton.classList.remove('hide');
-        }
-        if (_grid.scrollTop > 65) {
-            _topButton.classList.remove('hide');
-        }
-        else {
-            _topButton.classList.add('hide');
-        }
-    }
-    _initGalleryControls(container) {
-        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice())
-            return;
-        const topButton = container.querySelector('.gallery-control-top');
-        const bottomButton = container.querySelector('.gallery-control-bottom');
-        const grid = container.querySelector('.media-grid');
-        grid.addEventListener('scroll', () => {
-            this._calculateGalleryView(container, grid, topButton, bottomButton);
-        });
-        topButton.addEventListener('click', () => {
-            grid.scrollBy({
-                top: -125,
-                left: 0,
-                behavior: 'smooth'
-            });
-        });
-        bottomButton.addEventListener('click', () => {
-            grid.scrollBy({
-                top: 125,
-                left: 0,
-                behavior: 'smooth'
-            });
-        });
-    }
-    _getGridControls(container) {
-        const _container = container ?? this._getOrCreateContainer();
-        const gridModeToggle = _container.querySelector('.grid-toggle');
-        const galleryToggle = gridModeToggle.querySelector('.grid-toggle-gallery');
-        const gridToggle = gridModeToggle.querySelector('.grid-toggle-grid');
-        return {
-            gridModeToggle,
-            galleryToggle,
-            gridToggle
-        };
-    }
-    setGridView(updateGrid = false) {
-        this._compositorViewType = compositorViewType.GRID;
-        if (updateGrid) {
-            this._updateGridLayouts();
-        }
-    }
-    setGalleryView(updateGrid = false) {
-        this._compositorViewType = compositorViewType.GALLERY;
-        if (updateGrid) {
-            this._updateGridLayouts();
-        }
-    }
-    _switchToGridView(container, isUserInteraction = false) {
-        const _container = container ?? this._getOrCreateContainer();
-        const { gridToggle, galleryToggle } = this._getGridControls(_container);
-        if (!_container.classList.contains('gallery-mode'))
-            return;
-        _container.classList.remove('gallery-mode');
-        gridToggle.classList.add('active');
-        galleryToggle.classList.remove('active');
-        this._vidyoCore.EventDispatcher.emitAsync(RenderEvents.Events.CompositorViewChanged, {
-            view: compositorViewType.GRID,
-            isUserInteraction
-        });
-    }
-    _switchToGalleryView(container, isUserInteraction = false) {
-        const _container = container ?? this._getOrCreateContainer();
-        const { galleryToggle, gridToggle } = this._getGridControls(_container);
-        if (_container.classList.contains('gallery-mode'))
-            return;
-        _container.classList.add('gallery-mode');
-        gridToggle.classList.remove('active');
-        galleryToggle.classList.add('active');
-        this._calculateGalleryView(_container);
-        this._vidyoCore.EventDispatcher.emitAsync(RenderEvents.Events.CompositorViewChanged, {
-            view: compositorViewType.GALLERY,
-            isUserInteraction
-        });
-    }
-    _initGridViewToggleHandler(container) {
-        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice())
-            return;
-        const gridModeToggle = container.querySelector('.grid-toggle');
-        if (!gridModeToggle)
-            return;
-        const galleryToggle = gridModeToggle.querySelector('.grid-toggle-gallery');
-        const gridToggle = gridModeToggle.querySelector('.grid-toggle-grid');
-        this._vidyoCore.EventDispatcher.emitAsync(RenderEvents.Events.CompositorViewChanged, {
-            view: this._compositorViewType,
-            isUserInteraction: false
-        });
-        if (galleryToggle) {
-            galleryToggle.addEventListener('click', () => {
-                LocalStorageProvider_1.LocalStorageProvider.Set('VidyoCore::SelectedCompositorView', compositorViewType.GALLERY);
-                this._savedViewType = compositorViewType.GALLERY;
-                this._switchToGalleryView(container, true);
-                this.setGalleryView();
-            });
-        }
-        if (gridToggle) {
-            gridToggle.addEventListener('click', () => {
-                LocalStorageProvider_1.LocalStorageProvider.Set('VidyoCore::SelectedCompositorView', compositorViewType.GRID);
-                this._savedViewType = compositorViewType.GRID;
-                this._switchToGridView(container, true);
-                this.setGridView();
-            });
-        }
-    }
     _onRecheckEachVideoSize() {
         let container = new VideoResolution_1.BasicVideoResolution();
         if (this._parent) {
@@ -39914,10 +37848,6 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
             container.Height = this._parent.clientHeight;
         }
         let videos = [];
-        const lastApplicationsCount = this._applicationsCount;
-        const lastVideosCount = this._videosCount;
-        this._applicationsCount = 0;
-        this._videosCount = 0;
         this._eachVideoElement((element) => {
             let containerResolution = new VideoResolution_1.BasicVideoResolution(element.clientWidth, element.clientHeight);
             let videoElement = element.getElementsByTagName('video')[0];
@@ -39932,28 +37862,14 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
                 videoResolution.Height = resolution.height || Constants.DefaultLocalStreamHeight;
                 videoResolution.IsReceivedResolution = !!(resolution.width && resolution.height);
             }
-            if (videoResolution.IsPinned || videoResolution.IsApplication) {
+            if (videoResolution.IsPinned) {
                 this._updateViewLabel({ showLabel: this._viewLabel });
                 this._updateAudioMeters({ showMeters: this._viewMeters });
                 this._updateVideoTileControls({ showControls: this._showViewControls });
             }
             this._setAspectRatioClassToContainer(element, videoResolution);
-            let skipLocalSharePreview = !this._vidyoCore.Controllers.RemoteStreamController.TryGetParticipantStream(videoResolution.Id)
-                && this._isShowLocalShareAsVideoType;
-            let trackType = this._vidyoCore.Controllers.RemoteStreamController.TryGetParticipantStream(videoResolution.Id)
-                ? this._vidyoCore.Controllers.RemoteStreamController.GetTrackMediaType(videoResolution.Id)
-                : this._vidyoCore.Controllers.LocalStreamController.GetStreamTrackMediaType(videoResolution.Id);
-            if ((trackType === TrackMetaDataProvider_1.MediaTrackType.Application && !skipLocalSharePreview) || videoResolution.IsPinned) {
-                this._applicationsCount += 1;
-            }
-            else {
-                this._videosCount += 1;
-            }
             videos.push(videoResolution);
         });
-        if (lastVideosCount !== this._videosCount || lastApplicationsCount !== this._applicationsCount) {
-            this._updateGridLayouts();
-        }
         this._vidyoCore.Controllers.RendererController.UpdateVideoResolutions(container, videos);
     }
     _onUpdate(ids) {
@@ -39969,24 +37885,13 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
             return !p.Sources.some((s) => s.Type === Source_1.SourceMediaType.Video);
         });
         let participants = activeParticipants.concat(inactiveParticipants).slice(0, dynamicSourcesLimit);
-        let previewStream = this._vidyoCore.Controllers.LocalStreamController.CameraVideoStream;
-        let showLocalPreview = this._vidyoCore.Controllers.RendererController.ShowLocalPreview
-            && previewStream && previewStream.GetVideoTracks().length > 0;
-        if (!showLocalPreview && OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-            this._localPreviewDragManager.ResetData();
-        }
-        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice() && participantLimit === 1) {
-            if (this._vidyoCore.Controllers.ConferenceController.ActiveStaticSources?.length && showLocalPreview) {
-                participants = [];
-            }
-            if (this._vidyoCore.Controllers.ConferenceController.ActiveStaticSources?.length && !showLocalPreview) {
-                participants = participants.slice(0, 1);
-            }
-        }
         let activeStreamIds = participants.map((p) => p.Id);
         if (ids) {
             activeStreamIds = ObjectUtils_1.default.Difference(activeStreamIds, ids);
         }
+        let previewStream = this._vidyoCore.Controllers.LocalStreamController.CameraVideoStream;
+        let showLocalPreview = this._vidyoCore.Controllers.RendererController.ShowLocalPreview
+            && previewStream && previewStream.GetVideoTracks().length > 0;
         if (previewStream) {
             if (showLocalPreview) {
                 activeStreamIds.push(previewStream.Id);
@@ -40006,42 +37911,28 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
             }
             else {
                 this._updateContainerState();
-                if (this._loudestParticipant?.Id === participant.Id) {
-                    this._loudestParticipant = null;
-                }
                 this._safelyRemoveVideoElement(participant.Id);
             }
         });
-        if (participants.length <= 1) {
-            this._loudestParticipant = null;
-        }
         this._updatePreview();
         this._updateApplicationsStreams();
         this._updateContainerState();
         this._updateAudioStreams();
         this._onRecheckEachVideoSize();
-        this._defineLoudestParticipantFromRouter();
-        this._updateLoudestFromHistory();
-        this._calculateGalleryView();
     }
-    _addStream(stream, id, name, isPreview, tag = '') {
+    _addStream(stream, id, name, isPreview) {
         let container = this._getOrCreateContainer();
         let options = {
             name: name,
-            displayCropped: false,
-            allowZoom: true,
-            tag: tag
+            displayCropped: true,
+            allowZoom: true
         };
         this._updateContainerState();
         let alreadyRendered = this._elementsVideoForParticipant(id).length > 0;
         if (!alreadyRendered) {
             let selector = '.video-grid';
             let mediaGrid = container.querySelector(selector);
-            const element = this._addVideoElement(Templates.trackTemplate, mediaGrid, options, stream, id, isPreview, false);
-            if (isPreview && OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-                this._localPreviewDragManager.ResetData();
-                this._localPreviewDragManager.ApplyDragToTarget(element);
-            }
+            this._addVideoElement(Templates.trackTemplate, mediaGrid, options, stream, id, isPreview, false);
             this._updateViewLabel({ showLabel: this._viewLabel });
             this._updateAudioMeters({ showMeters: this._viewMeters });
             this._updateVideoTileControls({ showControls: this._showViewControls });
@@ -40052,13 +37943,9 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
         this._destroyAudioElements();
         this._removeAllElements();
         this._updatePreview();
-        this._loudestParticipant = null;
-    }
-    _setResizeObserver(callback) {
-        return new ResizeObserver((entries) => callback.call(this, entries));
     }
     _getOrCreateContainer() {
-        let container = this._parent.firstChild;
+        let container = this._parent.querySelector('.vidyo-rendering-container');
         if (!container) {
             this._parent.innerHTML = Templates.containerTemplate;
             container = this._parent.querySelector('.vidyo-rendering-container');
@@ -40067,26 +37954,7 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
                 this._vidyoCore.Controllers.LogController.LogError(error);
                 throw (error);
             }
-            if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-                const gridModeToggle = container.querySelector('.grid-toggle');
-                gridModeToggle.classList.add('hidden');
-                container.setAttribute("data-mobile", "true");
-            }
-            else {
-                container.setAttribute("data-mobile", "false");
-            }
             this._updateGridLayouts();
-            this._initGridViewToggleHandler(container);
-            this._initGalleryControls(container);
-            this._showLocalShareAsVideoType(true);
-            if (!OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-                const observer = this._setResizeObserver(this._setContainerViewDirection);
-                observer.observe(container);
-                if (this._savedViewType &&
-                    (this._savedViewType === compositorViewType.GRID || this._savedViewType === compositorViewType.GALLERY)) {
-                    this._compositorViewType = this._savedViewType;
-                }
-            }
         }
         return container;
     }
@@ -40131,154 +37999,59 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
     _updateContainerState() {
         this._getOrCreateContainer();
     }
-    _setContainerViewDirection(entries = []) {
-        if (OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice())
-            return;
-        let width, height, container;
-        let mode = 'horizontal';
-        for (let entry of entries) {
-            if (entry.contentRect) {
-                container = entry.target;
-                width = entry.contentRect.width;
-                height = entry.contentRect.height;
-            }
-        }
-        if (!container) {
-            container = this._getOrCreateContainer();
-            width = container.clientWidth;
-            height = container.clientHeight;
-        }
-        const tilesCount = container.querySelectorAll('.video-container')?.length;
-        if (this._applicationsCount >= 2) {
-            if (width < height) {
-                mode = 'vertical';
-            }
-            if (tilesCount > this._applicationsCount) {
-                const _width = width - 240;
-                if (_width < height) {
-                    mode = 'vertical';
-                }
-            }
-        }
-        const grid = container.querySelector('.video-grid');
-        if (grid) {
-            grid.setAttribute('data-direction', `${mode}`);
-        }
-    }
-    _initPinLocalShareHandler(element) {
-        let pinButton = element.querySelector('.pin-participant');
-        if (pinButton) {
-            pinButton.classList.remove('hide');
-            pinButton.addEventListener('click', () => {
-                this._showLocalShareAsVideoType(!this._isShowLocalShareAsVideoType);
-                element.classList.toggle('pinned-preview');
-            });
-        }
-    }
-    _initLocalShareEndHandler(element) {
-        let endShareButton = element.querySelector('.end-share');
-        if (endShareButton) {
-            endShareButton.addEventListener('click', () => {
-                this._vidyoCore.Controllers.LocalStreamController.StopWindowShare();
-            });
-        }
-    }
-    _updateLoudestFromHistory() {
-        if (this._loudestParticipant) {
-            const container = this._getOrCreateContainer();
-            if (!container)
-                return;
-            const loudestParticipantElement = this._loudestParticipant.Origin === "local"
-                ? container.querySelector(`.video-container.local-track.video-type`)
-                : container.querySelector(`.video-container[data-participant-id='${this._loudestParticipant.Id}'].video-type`);
-            const currentLoudest = container.querySelector('.loudest');
-            if (!loudestParticipantElement && !currentLoudest) {
-                this._loudestParticipant = null;
-                this._defineLoudestParticipantFromRouter();
-            }
-            if (loudestParticipantElement && !loudestParticipantElement.classList.contains('loudest')) {
-                if (currentLoudest) {
-                    currentLoudest.classList.remove('loudest');
-                }
-                loudestParticipantElement.classList.add('loudest');
-            }
-        }
-    }
     _updateGridLayouts() {
-        let container = this._getOrCreateContainer();
+        let container = this._parent.querySelector('.vidyo-rendering-container');
         if (!container) {
             return;
         }
-        const tilesCount = container.querySelectorAll('.video-container')?.length;
-        const gridModeToggle = container.querySelector('.grid-toggle');
-        const galleryToggle = gridModeToggle.querySelector('.grid-toggle-gallery');
-        const gridToggle = gridModeToggle.querySelector('.grid-toggle-grid');
-        if (tilesCount < 2) {
-            if (gridModeToggle) {
-                gridModeToggle.classList.add('hidden');
-                galleryToggle.classList.remove('active');
-                gridToggle.classList.add('active');
+        let style = '';
+        let videoGridLayout = this._vidyoCore.Controllers.RendererController.VideoGridLayout;
+        let scope = ".video-grid" || '';
+        style += StringUtils_1.default.Format(Templates.compositeLayoutStyle, { scope, columns: videoGridLayout.Columns, rows: videoGridLayout.Rows });
+        videoGridLayout.SpaceBefore.forEach((index) => {
+            style += StringUtils_1.default.Format(Templates.compositeLayoutStyleSpaceBeforeVideo, { index, scope });
+        });
+        let applicationGridLayout = this._vidyoCore.Controllers.RendererController.ApplicationGridLayout;
+        const applicationsPresent = applicationGridLayout.Cells > 0;
+        let gridSplitStyle = "VideoOnly";
+        if (applicationsPresent) {
+            gridSplitStyle = this._vidyoCore.Controllers.RendererController.MediaGridSplit === 'horizontal'
+                ? "HorizontalSplit"
+                : "VerticalSplit";
+            if (videoGridLayout.Cells === 0) {
+                gridSplitStyle = "ApplicatonOnly";
             }
+            scope = ".application-grid" || '';
+            style += StringUtils_1.default.Format(Templates.compositeLayoutStyle, {
+                scope,
+                columns: applicationGridLayout.Columns,
+                rows: applicationGridLayout.Rows
+            });
+            applicationGridLayout.SpaceBefore.forEach((index) => {
+                style += StringUtils_1.default.Format(Templates.compositeLayoutStyleSpaceBeforeVideo, { index, scope });
+            });
         }
-        else {
-            if (gridModeToggle && !OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-                gridModeToggle.classList.remove('hidden');
-            }
+        style += Templates.compositeLayoutGridSplitStyle(gridSplitStyle, videoGridLayout.Columns);
+        let styleElement = container.querySelector('style');
+        if (!styleElement) {
+            throw (new Error('Failed to find style element in rendering container, cannot update grid layout'));
         }
-        gridToggle.classList.remove('disabled');
-        if (this._applicationsCount > 0) {
-            if (!OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-                if (container.querySelector('.pinned-video') || container.querySelector('.application-type')) {
-                    container.classList.add('pinned');
-                }
-                else {
-                    container.classList.remove('pinned');
-                }
-                gridToggle.classList.add('disabled');
-            }
-            if (tilesCount > 1) {
-                if (!OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-                    this._switchToGalleryView();
-                }
-            }
+        if (styleElement.innerHTML !== style) {
+            styleElement.innerHTML = style;
         }
-        else {
-            container.classList.remove('pinned');
-            if (tilesCount < 2 || this._compositorViewType === compositorViewType.GRID) {
-                this._switchToGridView();
-            }
-            if (tilesCount > 1 && this._compositorViewType === compositorViewType.GALLERY) {
-                this._switchToGalleryView();
-            }
+        let videoGrid = container.querySelector('.video-grid');
+        if (!videoGrid) {
+            throw (new Error('Failed to find video grid in rendering container, cannot update picture-in-picture settings'));
         }
-        const videoGrid = container.querySelector('.video-grid');
+        const cellCountForPictureInPictureMode = 2;
         const previewStream = this._vidyoCore.Controllers.LocalStreamController.CameraVideoStream;
         const showLocalPreview = this._vidyoCore.Controllers.RendererController.ShowLocalPreview && previewStream &&
             previewStream.GetVideoTracks().length > 0;
-        const gridTilesCount = OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice() && showLocalPreview && tilesCount > 1 ? tilesCount - 1 : tilesCount;
-        videoGrid.setAttribute('data-preview', `${showLocalPreview}`);
-        videoGrid.setAttribute('data-tiles', `${gridTilesCount}`);
-        videoGrid.setAttribute('data-applications', `${this._applicationsCount}`);
-        if (!OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice()) {
-            this._setContainerViewDirection();
-        }
-        else {
-            if (showLocalPreview && tilesCount > 1) {
-                if (!this._localPreviewDragManager.HasTarget) {
-                    const localPreview = container.querySelector('.video-container.local-track.video-type');
-                    if (localPreview) {
-                        this._localPreviewDragManager.ApplyDragToTarget(localPreview);
-                    }
-                }
-                container.classList.add('picture-in-picture');
-            }
-            else {
-                if (container.classList.contains('picture-in-picture')) {
-                    container.classList.remove('picture-in-picture');
-                    this._localPreviewDragManager.ResetData();
-                }
-            }
-        }
+        videoGrid.classList.toggle('picture-in-picture', !applicationsPresent && showLocalPreview && videoGridLayout.Cells === cellCountForPictureInPictureMode);
+        Array.prototype.forEach.call(container.querySelectorAll('.media-grid video'), (video) => {
+            video.style.marginLeft = '';
+            video.style.marginTop = '';
+        });
     }
     _updateParticipantStaticViews(participantId, isPreview) {
         let applicationStreams = [];
@@ -40321,11 +38094,11 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
             }
         }
         const container = this._getOrCreateContainer();
-        let appGrid = container.querySelector('.video-grid');
+        let appGrid = container.querySelector('.application-grid');
         if (appGrid) {
             let options = {
                 name,
-                displayCropped: false,
+                displayCropped: true,
                 allowZoom: true
             };
             let appStreamsIds = applicationStreams.map((stream) => stream.Id);
@@ -40334,8 +38107,7 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
                 .querySelectorAll(`.vidyo-rendering-container .video-container[data-participant-id='${participantId}']`);
             for (let i = currentStaticViews.length - 1; i >= 0; --i) {
                 let view = currentStaticViews[i];
-                if (-1 === [...appStreamsIds, ...pinnedStreamIds].indexOf(view.getAttribute('data-stream-id')) &&
-                    (view.classList.contains('application-type') || view.classList.contains('pinned-video'))) {
+                if (-1 === [...appStreamsIds, ...pinnedStreamIds].indexOf(view.getAttribute('data-stream-id'))) {
                     const parent = view.parentElement;
                     if (parent) {
                         parent.removeChild(view);
@@ -40361,11 +38133,7 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
                     if (appStream.Id === this._vidyoCore.Controllers.LocalStreamController.MonitorShareStream.Id) {
                         options.name = this._vidyoCore.Controllers.DeviceController.GetMonitorSharePreviewLabel();
                     }
-                    const tile = this._addVideoElement(Templates.trackTemplate, appGrid, options, appStream, participantId, isPreview, true, false);
-                    if (isPreview) {
-                        this._initPinLocalShareHandler(tile);
-                        this._initLocalShareEndHandler(tile);
-                    }
+                    this._addVideoElement(Templates.trackTemplate, appGrid, options, appStream, participantId, isPreview, true);
                 }
             });
             pinnedStreams.forEach((stream) => {
@@ -40381,54 +38149,11 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
         const showLocalPreview = this._vidyoCore.Controllers.RendererController.ShowLocalPreview && previewStream?.GetVideoTracks().length > 0;
         if (previewStream && showLocalPreview) {
             const selectedCamera = this._vidyoCore.Controllers.DeviceController.GetSelectedDevices().Camera;
-            const localParticipant = this._vidyoCore.Controllers.ParticipantController.GetLocalParticipant();
-            let previewLabel = this._vidyoCore.Controllers.UserController.UserDisplayName() || (localParticipant || {})['Name'] || 'Preview';
-            let previewTag = 'You';
-            if (typeof selectedCamera !== 'boolean' && selectedCamera.PreviewLabel) {
+            let previewLabel = 'Preview';
+            if (typeof selectedCamera !== 'boolean') {
                 previewLabel = selectedCamera.PreviewLabel;
             }
-            if (typeof selectedCamera !== 'boolean' && selectedCamera.PreviewTag) {
-                previewTag = selectedCamera.PreviewTag;
-            }
-            this._addStream(previewStream, previewStream.Id, previewLabel, true, previewTag);
-        }
-    }
-    _defineLoudestParticipantFromRouter(options) {
-        if (this._loudestParticipant)
-            return;
-        const participants = (options || {})['participants'] || this._vidyoCore.Controllers.ParticipantController.GetParticipants();
-        if (participants?.length) {
-            const loudestParticipant = participants.find(p => p.Origin === "remote" && (p.Generation === 0 || p.Generation === 1));
-            if (loudestParticipant) {
-                this._handleLoudestParticipantChange({
-                    participant: loudestParticipant
-                });
-            }
-            else {
-                const localParticipant = participants.find(p => p.Origin === "local");
-                if (localParticipant) {
-                    this._handleLoudestParticipantChange({
-                        participant: localParticipant
-                    });
-                }
-            }
-        }
-    }
-    _handleDynamicParticipantChanged(options) {
-        this._defineLoudestParticipantFromRouter(options);
-    }
-    _handleLoudestParticipantChange(options) {
-        if (options.participant.Id === (this._loudestParticipant || {})['Id'])
-            return;
-        this._loudestParticipant = options.participant;
-        const container = this._getOrCreateContainer();
-        const newLoudestParticipant = document.querySelector(`[data-participant-id="${options.participant.Id}"].video-type`);
-        const lastLoudestParticipant = container.querySelector('.loudest');
-        if (lastLoudestParticipant) {
-            lastLoudestParticipant.classList.remove('loudest');
-        }
-        if (newLoudestParticipant) {
-            newLoudestParticipant.classList.add('loudest');
+            this._addStream(previewStream, previewStream.Id, previewLabel, true);
         }
     }
     _updateVideoTileControls(options) {
@@ -40464,14 +38189,14 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
         if (stream) {
             let videoEnabled = videoState
                 || !!(isPreview && stream.GetVideoTracks().length && stream.GetVideoTracks()[0].IsActive());
-            let audioEnabled = audioState;
-            if (isPreview && !audioEnabled) {
-                audioEnabled = this._vidyoCore.Controllers.LocalStreamController.IsAudioEnabled();
-            }
+            let audioEnabled = audioState ||
+                !!(isPreview && audioStream && audioStream.GetAudioTracks().length && audioStream.GetAudioTracks()[0].IsActive()
+                    && !this._vidyoCore.Controllers.DeviceController.GetAudioMuteState());
             let container = this._parent.querySelector(`[data-stream-id='${stream.Id}']`);
             if (container) {
                 let videoElement = container.querySelector('video');
                 if (videoElement) {
+                    let mediaStream = stream.GetMediaStream();
                     if (isPreview && OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsElectron() || OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsSafari() || OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsFirefox()) {
                         if (this._previewLoad !== audioEnabled) {
                             this._previewLoad = audioEnabled;
@@ -40542,17 +38267,11 @@ class VidyoRenderer extends RendererBase_1.RendererBase {
     }
 }
 __decorate([
-    (0, Decorators_1.debounce)(30)
-], VidyoRenderer.prototype, "_calculateGalleryView", null);
-__decorate([
-    (0, Decorators_1.debounce)(100)
-], VidyoRenderer.prototype, "_setContainerViewDirection", null);
-__decorate([
-    (0, Decorators_1.debounce)(OperatingSystemInfoProvider_1.OperatingSystemInfoProvider.IsMobileDevice() ? 50 : 0)
+    (0, Decorators_1.debounce)()
 ], VidyoRenderer.prototype, "_updateGridLayouts", null);
 exports.VidyoRenderer = VidyoRenderer;
 
-},{"../../core/controllers/StreamController/TrackMetaDataProvider":54,"../../core/events/ConnectionEvents":61,"../../core/events/EventDispatcher":63,"../../core/events/ParticipantEvents":68,"../../core/events/RenderEvents":70,"../../core/events/StreamEvents":74,"../../core/models/Participant":90,"../../core/models/Source":95,"../../core/models/VideoResolution":97,"../../core/utils/AssertExhaustiveSwitch":134,"../../core/utils/Constants":138,"../../core/utils/Decorators":139,"../../core/utils/LocalStorageProvider":148,"../../core/utils/Messages":152,"../../core/utils/ObjectUtils":155,"../../core/utils/OperatingSystemInfoProvider":156,"../../core/utils/StringUtils":166,"../DragManager":177,"../RendererBase":178,"../Templates":180}],183:[function(require,module,exports){
+},{"../../core/controllers/StreamController/TrackMetaDataProvider":52,"../../core/events/ConnectionEvents":59,"../../core/events/EventDispatcher":61,"../../core/events/RenderEvents":68,"../../core/models/Participant":88,"../../core/models/Source":92,"../../core/models/VideoResolution":94,"../../core/utils/AssertExhaustiveSwitch":129,"../../core/utils/Constants":133,"../../core/utils/Decorators":134,"../../core/utils/Messages":147,"../../core/utils/ObjectUtils":150,"../../core/utils/OperatingSystemInfoProvider":151,"../../core/utils/StringUtils":161,"../RendererBase":172,"../Templates":174}],177:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomVidyoRenderer = void 0;
@@ -40827,7 +38546,7 @@ class CustomVidyoRenderer extends RendererBase_1.RendererBase {
 }
 exports.CustomVidyoRenderer = CustomVidyoRenderer;
 
-},{"../../core/events/EventDispatcher":63,"../../core/events/RenderEvents":70,"../../core/utils/Messages":152,"../../core/utils/ObjectUtils":155,"../../core/utils/OperatingSystemInfoProvider":156,"../../core/utils/StringUtils":166,"../RendererBase":178,"../Templates":180}],184:[function(require,module,exports){
+},{"../../core/events/EventDispatcher":61,"../../core/events/RenderEvents":68,"../../core/utils/Messages":147,"../../core/utils/ObjectUtils":150,"../../core/utils/OperatingSystemInfoProvider":151,"../../core/utils/StringUtils":161,"../RendererBase":172,"../Templates":174}],178:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -40838,7 +38557,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 var VidyoConnector_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VidyoConnector = exports.VidyoConnectorFailReason = exports.VidyoConnectorDisconnectReason = exports.VidyoConnectorState = void 0;
+exports.VidyoConnector = exports.VidyoConnectorAnalyticServiceType = exports.VidyoConnectorFailReason = exports.VidyoConnectorDisconnectReason = exports.VidyoConnectorState = void 0;
 const SimpleApi = require("../vidyo_simple_api/VidyoSimple");
 const ConferenceEvents = require("../core/events/ConferenceEvents");
 const AssignHiddenPropertyValue_1 = require("../core/utils/AssignHiddenPropertyValue");
@@ -40867,8 +38586,6 @@ var VidyoConnectorState;
     VidyoConnectorState["EnablingMedia"] = "VIDYO_CONNECTORSTATE_EnablingMedia";
     VidyoConnectorState["Disconecting"] = "VIDYO_CONNECTORSTATE_Disconecting";
     VidyoConnectorState["Connected"] = "VIDYO_CONNECTORSTATE_Connected";
-    VidyoConnectorState["Disabling"] = "VIDYO_CONNECTORSTATE_Disabling";
-    VidyoConnectorState["Dead"] = "VIDYO_CONNECTORSTATE_Dead";
 })(VidyoConnectorState = exports.VidyoConnectorState || (exports.VidyoConnectorState = {}));
 var VidyoConnectorDisconnectReason;
 (function (VidyoConnectorDisconnectReason) {
@@ -40915,6 +38632,10 @@ var VidyoConnectorFailReason;
     VidyoConnectorFailReason["NotLicensed"] = "VIDYO_CONNECTORFAILREASON_NotLicensed";
     VidyoConnectorFailReason["Rejected"] = "VIDYO_CONNECTORFAILREASON_Rejected";
 })(VidyoConnectorFailReason = exports.VidyoConnectorFailReason || (exports.VidyoConnectorFailReason = {}));
+var VidyoConnectorAnalyticServiceType;
+(function (VidyoConnectorAnalyticServiceType) {
+    VidyoConnectorAnalyticServiceType["VIDYO_CONNECTORANALYTICSSERVICETYPE_Google"] = "VIDYO_CONNECTORANALYTICSSERVICETYPE_Google";
+})(VidyoConnectorAnalyticServiceType = exports.VidyoConnectorAnalyticServiceType || (exports.VidyoConnectorAnalyticServiceType = {}));
 class VidyoConnectorHiddenMembers {
     constructor() {
         this.AbortLogin = null;
@@ -40947,6 +38668,15 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     }
     AddMessageClass(msgClass) {
         return this._hidden.VidyoEndpoint.AddMessageClass(msgClass);
+    }
+    AnalyticsControlEventAction(options) {
+        return this._hidden.VidyoEndpoint.AnalyticsControlEventAction(options);
+    }
+    AnalyticsStart(options) {
+        return this._hidden.VidyoEndpoint.AnalyticsStart(options);
+    }
+    AnalyticsStop() {
+        return this._hidden.VidyoEndpoint.AnalyticsStop();
     }
     AssignViewToCompositeRenderer(options) {
         return this._hidden.VidyoEndpoint.AssignViewToCompositeRenderer(options);
@@ -41059,21 +38789,12 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
         this._hidden.VidyoEndpoint.CycleSpeaker();
         return Promise.resolve(true);
     }
-    CompositorSetGalleryView() {
-        this._hidden.VidyoEndpoint.CompositorSetGalleryView();
-        return Promise.resolve(true);
-    }
-    CompositorSetGridView() {
-        this._hidden.VidyoEndpoint.CompositorSetGridView();
-        return Promise.resolve(true);
-    }
     Destruct() {
         return this.Disable();
     }
     Disable() {
-        this._changeState(VidyoConnectorState.Disabling);
         return this._hidden.VidyoSimple.Disable().then((result) => {
-            this._changeState(VidyoConnectorState.Dead);
+            this._changeState(VidyoConnectorState.Idle);
             return result;
         });
     }
@@ -41097,38 +38818,14 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     EnableDebug(options) {
         return this._hidden.VidyoEndpoint.EnableDebug(options);
     }
+    GetAnalyticsEventTable(options) {
+        return this._hidden.VidyoEndpoint.GetAnalyticsEventTable(options);
+    }
     GetConnectionProperties() {
         let properties = [];
         properties.push({ name: 'Room.displayName', value: this._hidden.VidyoRoom?.RoomDisplayName });
         properties.push({ name: 'Room.conferenceIdNumber', value: this._hidden.VidyoRoom?.RoomIdNumber });
         return Promise.resolve(properties);
-    }
-    GetGoogleAnalyticsEventTable(options) {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to get Google Analytics event table while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.GetGoogleAnalyticsEventTable(options);
-    }
-    GetGoogleAnalyticsServiceID() {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to get Google Analytics service ID while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(null);
-        }
-        return this._hidden.VidyoEndpoint.GetGoogleAnalyticsServiceId();
-    }
-    GetInsightsServiceUrl() {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to get Insights service URL while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(null);
-        }
-        return this._hidden.VidyoEndpoint.GetInsightsServiceUrl();
     }
     GetState() {
         return Promise.resolve(this._hidden.State);
@@ -41136,55 +38833,13 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     GetStatsJson() {
         return this._hidden.VidyoEndpoint.GetStatsJson();
     }
-    GetProductInfo(options) {
-        return this._hidden.VidyoEndpoint.GetProductInfo(options);
-    }
-    GetProductInfoAsync(options) {
-        return this._hidden.VidyoEndpoint.GetProductInfoAsync(options);
-    }
     GetWebRTCStats() {
         return this._hidden.VidyoEndpoint.GetWebRTCStats();
     }
     GetVersion() { return Promise.resolve(`${Constants_1.LibVersion}.${Constants_1.LibBuild}`); }
     GetVersionWithoutBuildNumber() { return Promise.resolve(Constants_1.LibVersion); }
-    GoogleAnalyticsControlEventAction(options) {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to control Google Analytics events while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.GoogleAnalyticsControlEventAction(options);
-    }
     HideView(options) {
         return this._hidden.VidyoEndpoint.HideView(options);
-    }
-    InsightsNotifyEvent(options) {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to notify Insights event while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.InsightsNotifyApplicationEvent(options);
-    }
-    IsGoogleAnalyticsServiceEnabled() {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to get Google Analytics service state while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.IsGoogleAnalyticsServiceEnabled();
-    }
-    IsInsightsServiceEnabled() {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to get Insights service state while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.IsInsightsServiceEnabled();
     }
     PinParticipant(options) {
         return this._hidden.VidyoEndpoint.PinParticipant(options);
@@ -41303,9 +38958,6 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     RegisterVideoTileEventListener(options) {
         return this._hidden.VidyoEndpoint.RegisterVideoTileEventListener(options);
     }
-    RegisterCompositorViewChangeEventListener(options) {
-        return this._hidden.VidyoEndpoint.RegisterCompositorViewChangeEventListener(options);
-    }
     ReportLocalParticipantOnJoined(reportLocalParticipant) {
         this._hidden.VidyoEndpoint.ReportLocalParticipantOnJoined(reportLocalParticipant);
         return Promise.resolve(true);
@@ -41362,11 +39014,7 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
         this._hidden.VidyoEndpoint.SetAdvancedConfiguration(values);
     }
     SetOptions(options) {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => `Unable to set options while VidyoConnector in state: ${this._hidden.State}`);
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.SetOptions(options);
+        this._hidden.VidyoEndpoint.SetOptions(options);
     }
     SetCameraPrivacy(state) {
         return this._hidden.VidyoEndpoint.SetCameraPrivacy(state);
@@ -41391,9 +39039,6 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     }
     SetPool(options) {
         return this._hidden.VidyoEndpoint.SetPool(options);
-    }
-    SetProductInfo(options) {
-        return this._hidden.VidyoEndpoint.SetProductInfo(options);
     }
     SetTCPTransport(param) {
         return this._hidden.VidyoUser.SetTCPTransport(param);
@@ -41422,42 +39067,6 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     ShowWindowSharePreview(options) {
         this._hidden.VidyoEndpoint.ShowWindowSharePreview(options);
         return Promise.resolve(true);
-    }
-    StartGoogleAnalyticsService(options) {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to start Google Analytics while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.StartGoogleAnalyticsService(options);
-    }
-    StartInsightsService(options) {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to start Insights service while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.StartInsightsService(options);
-    }
-    StopGoogleAnalyticsService() {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to stop Google Analytics while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.StopGoogleAnalyticsService();
-    }
-    StopInsightsService() {
-        if (this._isVidyoConnectorInDeadOrDisablingState()) {
-            this._hidden.VidyoSimple.VidyoLogger.LogInfo(() => {
-                return `Unable to stop Insights service while VidyoConnector in state: ${this._hidden.State}`;
-            });
-            return Promise.resolve(false);
-        }
-        return this._hidden.VidyoEndpoint.StopInsightsService();
     }
     UnraiseHand(options) {
         if (this._hidden.VidyoRoom) {
@@ -41566,9 +39175,6 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
     UnregisterVideoTileEventListener() {
         return this._hidden.VidyoEndpoint.UnregisterVideoTileEventListener();
     }
-    UnregisterCompositorViewChangeEventListener() {
-        return this._hidden.VidyoEndpoint.UnregisterCompositorViewChangeEventListener();
-    }
     _changeState(state) {
         this._hidden.State = state;
     }
@@ -41581,12 +39187,7 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
             return true;
         });
     }
-    _isVidyoConnectorInDeadOrDisablingState() {
-        return this._hidden.State === VidyoConnectorState.Idle
-            || this._hidden.State === VidyoConnectorState.Disabling
-            || this._hidden.State === VidyoConnectorState.Dead;
-    }
-    _registerAdvancedSettingsEventListener({ onDisableStatsChanged, onDisableMobileParticipantLimitRestrictionsChanged, onDisableTabletParticipantLimitRestrictionsChanged, onDtmfToneDurationChanged, onEnableAudioOnlyModeChanged, onEnableOpusDTXChanged, onEnableAutoReconnectChanged, onEnableCompositorFixedParticipants, onEnableDTMFChanged, onEnableFixedEncoderBitRate, onEnableSimpleAPILoggingChanged, onEnableScreenShareSimulcastChanged, onEnableTransportCcChanged, onEnableVideoSimulcastChanged, onEnableVidyoConnectorAPILoggingChanged, onExtDataChanged, onExtDataTypeChanged, onMaxReconnectAttemptsChanged, onParticipantLimitChanged, onPinnedParticipantDisplayCroppedChanged, onReconnectBackoffChanged, onLogCategoryChanged, onShowStatisticsOverlayChanged, onStatisticsRefreshIntervalChanged, onAudioContentHintChanged, onCameraContentHintChanged, onWindowShareContentHintChanged, onEnableGeolocationChanged }) {
+    _registerAdvancedSettingsEventListener({ onDisableStatsChanged, onDisableMobileParticipantLimitRestrictionsChanged, onDisableTabletParticipantLimitRestrictionsChanged, onDtmfToneDurationChanged, onEnableAudioOnlyModeChanged, onEnableOpusDTXChanged, onEnableAutoReconnectChanged, onEnableCompositorFixedParticipants, onEnableDTMFChanged, onEnableFixedEncoderBitRate, onEnableSimpleAPILoggingChanged, onEnableScreenShareSimulcastChanged, onEnableTransportCcChanged, onEnableVideoSimulcastChanged, onEnableVidyoConnectorAPILoggingChanged, onMaxReconnectAttemptsChanged, onParticipantLimitChanged, onPinnedParticipantDisplayCroppedChanged, onReconnectBackoffChanged, onLogCategoryChanged, onShowStatisticsOverlayChanged, onStatisticsRefreshIntervalChanged, onCameraContentHintChanged, onWindowShareContentHintChanged }) {
         this._hidden.VidyoEndpoint.RegisterAdvancedSettingsEventListener({ onDisableStatsChanged,
             onDisableMobileParticipantLimitRestrictionsChanged,
             onDisableTabletParticipantLimitRestrictionsChanged,
@@ -41600,21 +39201,17 @@ let VidyoConnector = VidyoConnector_1 = class VidyoConnector {
             onEnableScreenShareSimulcastChanged,
             onEnableTransportCcChanged,
             onEnableVideoSimulcastChanged,
-            onEnableSimpleAPILoggingChanged,
             onEnableVidyoConnectorAPILoggingChanged,
-            onExtDataChanged,
-            onExtDataTypeChanged,
             onMaxReconnectAttemptsChanged,
             onParticipantLimitChanged,
             onPinnedParticipantDisplayCroppedChanged,
             onReconnectBackoffChanged,
             onShowStatisticsOverlayChanged,
             onStatisticsRefreshIntervalChanged,
+            onEnableSimpleAPILoggingChanged,
             onLogCategoryChanged,
-            onAudioContentHintChanged,
             onCameraContentHintChanged,
-            onWindowShareContentHintChanged,
-            onEnableGeolocationChanged });
+            onWindowShareContentHintChanged });
     }
     static CreateVidyoConnector(options) {
         let { viewId, viewStyle, remoteParticipants, logFileFilter, logFileName, userData, constraints } = options;
@@ -41663,7 +39260,7 @@ VidyoConnector = VidyoConnector_1 = __decorate([
 exports.VidyoConnector = VidyoConnector;
 
 }).call(this)}).call(this,"/src/vidyo_connector_api/VidyoConnector.ts")
-},{"../core/events/ConferenceEvents":60,"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/Constants":138,"../core/utils/Decorators":139,"../core/utils/GoogleAnalytics":145,"../core/utils/JSValidation":147,"../core/utils/LocationProvider":149,"../core/utils/Messages":152,"../core/utils/ObjectUtils":155,"../core/utils/PromiseHelper":159,"../core/utils/StringUtils":166,"../core/utils/SyncronizedQueue":167,"../core/utils/UserMediaProvider":170,"../core/utils/VidyoDebugger":172,"../vidyo_simple_api/VidyoSimple":195,"uuid":8}],185:[function(require,module,exports){
+},{"../core/events/ConferenceEvents":58,"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/Constants":133,"../core/utils/Decorators":134,"../core/utils/GoogleAnalytics":140,"../core/utils/JSValidation":142,"../core/utils/LocationProvider":144,"../core/utils/Messages":147,"../core/utils/ObjectUtils":150,"../core/utils/PromiseHelper":154,"../core/utils/StringUtils":161,"../core/utils/SyncronizedQueue":162,"../core/utils/UserMediaProvider":165,"../core/utils/VidyoDebugger":167,"../vidyo_simple_api/VidyoSimple":189,"uuid":7}],179:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BaseModel = void 0;
@@ -41677,7 +39274,7 @@ class BaseModel {
 }
 exports.BaseModel = BaseModel;
 
-},{}],186:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatMessage = exports.VidyoChatMessageType = exports.VidyoChatMessageSenderType = void 0;
@@ -41719,7 +39316,7 @@ class ChatMessage {
 }
 exports.ChatMessage = ChatMessage;
 
-},{}],187:[function(require,module,exports){
+},{}],181:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -41774,10 +39371,6 @@ class Camera extends Device {
     }
     SetPreviewLabel(options) {
         this._vidyoCore.Controllers.DeviceController.SetPreviewLabel(options.previewLabel, this.id);
-        return Promise.resolve(true);
-    }
-    SetPreviewTag(options) {
-        this._vidyoCore.Controllers.DeviceController.SetPreviewTag(options.previewTag, this.id);
         return Promise.resolve(true);
     }
 }
@@ -41932,7 +39525,7 @@ var VidyoRemoteMicrophoneMode;
 })(VidyoRemoteMicrophoneMode = exports.VidyoRemoteMicrophoneMode || (exports.VidyoRemoteMicrophoneMode = {}));
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/Devices.ts")
-},{"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/NotImplemented":154,"../core/utils/VidyoDebugger":172,"./BaseModel":185,"./Origin":190}],188:[function(require,module,exports){
+},{"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/NotImplemented":149,"../core/utils/VidyoDebugger":167,"./BaseModel":179,"./Origin":184}],182:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -41969,51 +39562,16 @@ const LogEvents_1 = require("../core/events/LogEvents");
 const APITypes_1 = require("../core/models/APITypes");
 const JSValidation_1 = require("../core/utils/JSValidation");
 const RendererTypes_1 = require("../core/models/RendererTypes");
-const EndpointInfoProvider_1 = require("../core/utils/EndpointInfoProvider");
-const VidyoProperty_1 = require("../core/models/VidyoProperty");
-const ProductInfo_1 = require("../core/models/ProductInfo");
-const Decorators_1 = require("../core/utils/Decorators");
-const PRODUCT_INFO_DEFAULT = Object.freeze({
-    [ProductInfo_1.ProductInfoName.ApplicationOS]: EndpointInfoProvider_1.EndpointInfoProvider.ApplicationOS,
-    [ProductInfo_1.ProductInfoName.ApplicationName]: EndpointInfoProvider_1.EndpointInfoProvider.ApplicationName,
-    [ProductInfo_1.ProductInfoName.ApplicationVersion]: EndpointInfoProvider_1.EndpointInfoProvider.ApplicationVersion,
-});
-const SUPPORTED_FEATURES_DEFAULT = Object.freeze({
-    [ProductInfo_1.SupportedFeatureName.LectureMode]: 'Enable',
-});
+const VidyoConnector_1 = require("../vidyo_connector_api/VidyoConnector");
+const AnalyticsController_1 = require("../core/controllers/AnalyticsController/AnalyticsController");
 let EndPoint = class EndPoint {
     constructor(vidyoCore) {
         this.objType = 'VidyoEndpoint';
         this._useDefaultCamera = true;
         this._useDefaultMicrophone = true;
         this._useDefaultSpeaker = true;
-        this._productInfo = { ...PRODUCT_INFO_DEFAULT };
-        this._supportedFeatures = { ...SUPPORTED_FEATURES_DEFAULT };
-        this._onExtDataChanged = (extData) => {
-            if (this._productInfo[ProductInfo_1.ProductInfoName.extData] === extData) {
-                return;
-            }
-            if (extData !== undefined) {
-                this._vidyoCore.Controllers.LogController.LogInfo('Updating "extData" in product info via advanced settings');
-                this._productInfo[ProductInfo_1.ProductInfoName.extData] = extData;
-            }
-            this._updateEndpointDetails(this._productInfo, this._supportedFeatures);
-        };
-        this._onExtDataTypeChanged = (extDataType) => {
-            if (this._productInfo[ProductInfo_1.ProductInfoName.extDataType] == extDataType) {
-                return;
-            }
-            if (extDataType !== undefined) {
-                this._vidyoCore.Controllers.LogController.LogInfo('Updating "extDataType" in product info via advanced settings');
-                this._productInfo[ProductInfo_1.ProductInfoName.extDataType] = extDataType.toString();
-            }
-            this._updateEndpointDetails(this._productInfo, this._supportedFeatures);
-        };
         (0, AssignHiddenPropertyValue_1.AssignHiddenPropertyValue)(this, '_vidyoCore', vidyoCore);
         this._vidyoCore.Controllers.CallStateController.EnableMedia();
-        this._updateEndpointDetails(this._productInfo, this._supportedFeatures);
-        this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.ExtDataChanged, this._onExtDataChanged);
-        this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.ExtDataTypeChanged, this._onExtDataTypeChanged);
         this.objId = this._createEndpointID();
         VidyoDebugger_1.VidyoDebugger.Debug(this, APITypes_1.API.Simple, __filename);
         if (this._vidyoCore.Controllers.RendererController.RenderMode === RendererTypes_1.RenderMode.Composite) {
@@ -42026,11 +39584,26 @@ let EndPoint = class EndPoint {
         this._vidyoCore.Controllers.MessageController.AddMessageClass(msgClass);
         return Promise.resolve(true);
     }
+    AnalyticsControlEventAction(options) {
+        return this._vidyoCore.Controllers.AnalyticsController.ControlEventAction(options.eventCategory, options.eventAction, options.enable);
+    }
+    AnalyticsStart(options) {
+        let coreServiceType = null;
+        switch (options.serviceType) {
+            case VidyoConnector_1.VidyoConnectorAnalyticServiceType.VIDYO_CONNECTORANALYTICSSERVICETYPE_Google:
+                coreServiceType = AnalyticsController_1.AnalyticServiceType.VIDYO_COREANALYTICSSERVICETYPE_Google;
+                break;
+            default:
+                this._vidyoCore.Controllers.LogController.LogInfo(() => `Unexpected analytics service type: ${options.serviceType}`);
+                return Promise.resolve(false);
+        }
+        return this._vidyoCore.Controllers.AnalyticsController.Start(coreServiceType, options.serverUrl, options.trackingID);
+    }
+    AnalyticsStop() {
+        return this._vidyoCore.Controllers.AnalyticsController.Stop();
+    }
     AssignViewToCompositeRenderer(options) {
         this._vidyoCore.Controllers.RendererController.AssignViewToCompositeRenderer(options);
-        this._registerLocalCameraPlugInOutManager();
-        this._registerLocalMicrophonePlugInOutManager();
-        this._registerLocalSpeakerPlugInOutManager();
         return Promise.resolve(true);
     }
     AssignViewToLocalCamera({ viewId, localCamera, displayCropped, allowZoom }) {
@@ -42084,12 +39657,6 @@ let EndPoint = class EndPoint {
             allowZoom: allowZoom
         });
     }
-    CompositorSetGalleryView() {
-        this._vidyoCore.Controllers.RendererController.CompositorSetGalleryView();
-    }
-    CompositorSetGridView() {
-        this._vidyoCore.Controllers.RendererController.CompositorSetGridView();
-    }
     CycleCamera() {
         this._vidyoCore.Controllers.DeviceController.CycleCamera();
     }
@@ -42120,18 +39687,12 @@ let EndPoint = class EndPoint {
     EnableFileLogger() {
         (0, NotImplemented_1.NotImplemented)();
     }
-    GetGoogleAnalyticsEventTable(options) {
-        options?.onGetAnalyticsEventTableCallback?.(this._vidyoCore.Controllers.AnalyticsController.GetGoogleAnalyticsEventTable());
+    GetAnalyticsEventTable(options) {
+        options?.onGetAnalyticsEventTableCallback?.(this._vidyoCore.Controllers.AnalyticsController.GetAnalyticsEventTable());
         return Promise.resolve(true);
-    }
-    GetGoogleAnalyticsServiceId() {
-        return Promise.resolve(this._vidyoCore.Controllers.AnalyticsController.GoogleAnalyticsTrackingID);
     }
     GetId() {
         (0, NotImplemented_1.NotImplemented)();
-    }
-    GetInsightsServiceUrl() {
-        return Promise.resolve(this._vidyoCore.Controllers.AnalyticsController.VidyoInsightsServerUrl);
     }
     GetStats() {
         let endpointStatistics = this._vidyoCore.Controllers.StatisticsController.GetEndpointStatistics();
@@ -42141,49 +39702,16 @@ let EndPoint = class EndPoint {
     GetStatsJson() {
         return Promise.resolve(JSON.stringify(this.GetStats()));
     }
-    GetProductInfo(options) {
-        if (!(options.productInfo instanceof Array) || !(options.supportedFeature instanceof Array)) {
-            return Promise.resolve(false);
-        }
-        const productInfo = (0, VidyoProperty_1.GetVidyoProperties)(this._productInfo);
-        const supportedFeatures = (0, VidyoProperty_1.GetVidyoProperties)(this._supportedFeatures);
-        options.productInfo.length = 0;
-        options.productInfo.push(...productInfo);
-        options.supportedFeature.length = 0;
-        options.supportedFeature.push(...supportedFeatures);
-        return Promise.resolve(true);
-    }
-    GetProductInfoAsync(options) {
-        if (typeof options.onComplete !== 'function') {
-            return Promise.resolve(false);
-        }
-        const productInfo = (0, VidyoProperty_1.GetVidyoProperties)(this._productInfo);
-        const supportedFeatures = (0, VidyoProperty_1.GetVidyoProperties)(this._supportedFeatures);
-        options.onComplete(productInfo, supportedFeatures);
-        return Promise.resolve(true);
-    }
     GetWebRTCStats() {
         return this._vidyoCore.HunterProvider.GetStats();
-    }
-    GoogleAnalyticsControlEventAction(options) {
-        return this._vidyoCore.Controllers.AnalyticsController.ControlGoogleAnalyticsEventAction(options.eventCategory, options.eventAction, options.enable);
     }
     HideView(options) {
         return this._vidyoCore.Controllers.RendererController.HideView(options);
     }
-    InsightsNotifyApplicationEvent(options) {
-        return this._vidyoCore.Controllers.AnalyticsController.NotifyVidyoInsightsApplicationEvent(options.eventName, options.parameters);
-    }
-    IsGoogleAnalyticsServiceEnabled() {
-        return Promise.resolve(this._vidyoCore.Controllers.AnalyticsController.IsGoogleAnalyticsStarted);
-    }
-    IsInsightsServiceEnabled() {
-        return Promise.resolve(this._vidyoCore.Controllers.AnalyticsController.IsVidyoInsightsStarted);
-    }
     PinParticipant({ participant, pin }) {
         return this._vidyoCore.Controllers.ParticipantController.PinParticipant(participant.id, pin);
     }
-    RegisterAdvancedSettingsEventListener({ onDisableStatsChanged, onDisableDynamicAudioSources, onDisableMobileParticipantLimitRestrictionsChanged, onDisableTabletParticipantLimitRestrictionsChanged, onDtmfToneDurationChanged, onEnableAudioOnlyModeChanged, onEnableOpusDTXChanged, onEnableAutoReconnectChanged, onEnableCompositorFixedParticipants, onEnableDTMFChanged, onEnableFixedEncoderBitRate, onEnableSimpleAPILoggingChanged, onEnableScreenShareSimulcastChanged, onEnableTransportCcChanged, onEnableVideoSimulcastChanged, onEnableVidyoConnectorAPILoggingChanged, onExtDataChanged, onExtDataTypeChanged, onMaxReconnectAttemptsChanged, onParticipantLimitChanged, onPinnedParticipantDisplayCroppedChanged, onReconnectBackoffChanged, onLogCategoryChanged, onShowStatisticsOverlayChanged, onStatisticsRefreshIntervalChanged, onAudioContentHintChanged, onCameraContentHintChanged, onWindowShareContentHintChanged, onEnableGeolocationChanged }) {
+    RegisterAdvancedSettingsEventListener({ onDisableStatsChanged, onDisableDynamicAudioSources, onDisableMobileParticipantLimitRestrictionsChanged, onDisableTabletParticipantLimitRestrictionsChanged, onDtmfToneDurationChanged, onEnableAudioOnlyModeChanged, onEnableOpusDTXChanged, onEnableAutoReconnectChanged, onEnableCompositorFixedParticipants, onEnableDTMFChanged, onEnableFixedEncoderBitRate, onEnableSimpleAPILoggingChanged, onEnableScreenShareSimulcastChanged, onEnableTransportCcChanged, onEnableVideoSimulcastChanged, onEnableVidyoConnectorAPILoggingChanged, onExtDataChanged, onExtDataTypeChanged, onMaxReconnectAttemptsChanged, onParticipantLimitChanged, onPinnedParticipantDisplayCroppedChanged, onReconnectBackoffChanged, onLogCategoryChanged, onShowStatisticsOverlayChanged, onStatisticsRefreshIntervalChanged, onCameraContentHintChanged, onWindowShareContentHintChanged }) {
         if (onLogCategoryChanged) {
             onLogCategoryChanged(this._vidyoCore.Controllers.AdvancedSettingsController.ShowLogCategory);
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.LogCategoryChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onLogCategoryChanged);
@@ -42215,10 +39743,6 @@ let EndPoint = class EndPoint {
         if (onEnableOpusDTXChanged) {
             onEnableOpusDTXChanged(this._vidyoCore.Controllers.AdvancedSettingsController.EnableOpusDTX);
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.EnableOpusDTXChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onEnableOpusDTXChanged);
-        }
-        if (onEnableGeolocationChanged) {
-            onEnableGeolocationChanged(this._vidyoCore.Controllers.AdvancedSettingsController.EnableGeolocation);
-            this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.EnableGeolocationChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onEnableGeolocationChanged);
         }
         if (onEnableCompositorFixedParticipants) {
             onEnableCompositorFixedParticipants(this._vidyoCore.Controllers.AdvancedSettingsController.EnableCompositorFixedParticipants);
@@ -42257,11 +39781,11 @@ let EndPoint = class EndPoint {
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.StatisticsRefreshIntervalChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onStatisticsRefreshIntervalChanged);
         }
         if (onExtDataChanged) {
-            onExtDataChanged(this._vidyoCore.Controllers.AdvancedSettingsController.ExtData);
+            onShowStatisticsOverlayChanged(this._vidyoCore.Controllers.AdvancedSettingsController.ExtData);
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.ExtDataChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onExtDataChanged);
         }
         if (onExtDataTypeChanged) {
-            onExtDataTypeChanged(this._vidyoCore.Controllers.AdvancedSettingsController.ExtDataType);
+            onShowStatisticsOverlayChanged(this._vidyoCore.Controllers.AdvancedSettingsController.ExtDataType);
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.ExtDataTypeChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onExtDataTypeChanged);
         }
         if (onEnableSimpleAPILoggingChanged) {
@@ -42288,10 +39812,6 @@ let EndPoint = class EndPoint {
             onReconnectBackoffChanged(this._vidyoCore.Controllers.AdvancedSettingsController.ReconnectBackoff);
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.ReconnectBackoffChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onReconnectBackoffChanged);
         }
-        if (onAudioContentHintChanged) {
-            onAudioContentHintChanged(this._vidyoCore.Controllers.AdvancedSettingsController.AudioContentHint);
-            this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.AudioContentHintChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onAudioContentHintChanged);
-        }
         if (onCameraContentHintChanged) {
             onCameraContentHintChanged(this._vidyoCore.Controllers.AdvancedSettingsController.CameraContentHint);
             this._vidyoCore.EventDispatcher.on(AdvancedSettingsEvents.Events.CameraContentHintChanged, EventDispatcher_1.VidyoAdvancedSettingsEventListeners, onCameraContentHintChanged);
@@ -42313,7 +39833,6 @@ let EndPoint = class EndPoint {
         };
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.CameraSelected, EventDispatcher_1.VidyoLocalCameraEventListeners, localOnSelected);
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.CameraStateUpdated, EventDispatcher_1.VidyoLocalCameraEventListeners, (payload) => onStateUpdated(new Devices_1.Camera(this._vidyoCore, payload.camera), payload.state));
-        this._registerLocalCameraPlugInOutManager();
         let deviceDetectionPromise;
         let needEmitOnSelect = false;
         if (this._vidyoCore.Controllers.DeviceController.DevicesAreBeingDetected) {
@@ -42356,7 +39875,6 @@ let EndPoint = class EndPoint {
         };
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.MicrophoneSelected, EventDispatcher_1.VidyoLocalMicrophoneEventListeners, localOnSelected);
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.MicrophoneStateUpdated, EventDispatcher_1.VidyoLocalMicrophoneEventListeners, (payload) => onStateUpdated(new Devices_1.Microphone(this._vidyoCore, payload.microphone), payload.state));
-        this._registerLocalMicrophonePlugInOutManager();
         let deviceDetectionPromise;
         let needEmitOnSelect = false;
         if (this._vidyoCore.Controllers.DeviceController.DevicesAreBeingDetected) {
@@ -42403,7 +39921,6 @@ let EndPoint = class EndPoint {
         };
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.SpeakerSelected, EventDispatcher_1.VidyoLocalSpeakerEventListeners, localOnSelected);
         this._vidyoCore.EventDispatcher.on(DeviceEvents.Events.SpeakerStateUpdated, EventDispatcher_1.VidyoLocalSpeakerEventListeners, (payload) => onStateUpdated(new Devices_1.Speaker(this._vidyoCore, payload.speaker), payload.state));
-        this._registerLocalSpeakerPlugInOutManager();
         let deviceDetectionPromise;
         let needEmitOnSelect = false;
         if (this._vidyoCore.Controllers.DeviceController.DevicesAreBeingDetected) {
@@ -42526,11 +40043,6 @@ let EndPoint = class EndPoint {
         this._vidyoCore.EventDispatcher.on(RenderEvents.Events.VideoTileUpdated, EventDispatcher_1.VidyoRenderVideoTileEventListener, (payload) => {
             onStateUpdated(payload);
         });
-        return Promise.resolve(true);
-    }
-    RegisterCompositorViewChangeEventListener({ onChange }) {
-        this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.VidyoRenderCompositorViewChangeEventListener);
-        this._vidyoCore.EventDispatcher.on(RenderEvents.Events.CompositorViewChanged, EventDispatcher_1.VidyoRenderCompositorViewChangeEventListener, onChange);
         return Promise.resolve(true);
     }
     ReportLocalParticipantOnJoined(reportLocalParticipant) {
@@ -42667,12 +40179,6 @@ let EndPoint = class EndPoint {
         if (typeof values.loggerURL !== 'undefined' && values.loggerURL !== '') {
             this._vidyoCore.Controllers.AdvancedSettingsController.LoggerURL = values.loggerURL;
         }
-        if (typeof values.enableGeolocation !== 'undefined') {
-            this._vidyoCore.Controllers.AdvancedSettingsController.EnableGeolocation = values.enableGeolocation;
-        }
-        if (typeof values.geolocationServiceURL !== 'undefined') {
-            this._vidyoCore.Controllers.AdvancedSettingsController.GeolocationServiceURL = values.geolocationServiceURL;
-        }
         if (typeof values.participantLimit !== 'undefined') {
             if (+values.participantLimit >= 0) {
                 this._vidyoCore.Controllers.AdvancedSettingsController.ParticipantLimit = +values.participantLimit;
@@ -42708,14 +40214,11 @@ let EndPoint = class EndPoint {
         if (typeof values.statisticsRefreshInterval !== 'undefined') {
             this._vidyoCore.Controllers.AdvancedSettingsController.StatisticsRefreshInterval = +values.statisticsRefreshInterval;
         }
-        if (typeof values.onGoogleAnalyticsEventSent === 'function' || values.onGoogleAnalyticsEventSent === null) {
-            this._vidyoCore.Controllers.AdvancedSettingsController.OnGoogleAnalyticsEventSent = values.onGoogleAnalyticsEventSent;
+        if (typeof values.onAnalyticsEventSent === 'function' || values.onAnalyticsEventSent === null) {
+            this._vidyoCore.Controllers.AdvancedSettingsController.OnAnalyticsEventSent = values.onAnalyticsEventSent;
         }
         if (typeof values.pinnedParticipantDisplayCropped !== 'undefined') {
             this._vidyoCore.Controllers.AdvancedSettingsController.PinnedParticipantDisplayCropped = values.pinnedParticipantDisplayCropped;
-        }
-        if (typeof values.audioContentHint !== 'undefined') {
-            this._vidyoCore.Controllers.AdvancedSettingsController.AudioContentHint = values.audioContentHint;
         }
         if (typeof values.cameraContentHint !== 'undefined') {
             this._vidyoCore.Controllers.AdvancedSettingsController.CameraContentHint = values.cameraContentHint;
@@ -42770,49 +40273,7 @@ let EndPoint = class EndPoint {
         (0, NotImplemented_1.NotImplemented)();
     }
     SetPool(options) {
-        this._vidyoCore.Controllers.ConnectionController.RoutersPoolName = options.name;
-        return Promise.resolve(true);
-    }
-    SetProductInfo(options) {
-        if (!(options.productInfo instanceof Array) || !(options.supportedFeature instanceof Array)) {
-            return Promise.resolve(false);
-        }
-        this._productInfo = { ...PRODUCT_INFO_DEFAULT };
-        this._supportedFeatures = { ...SUPPORTED_FEATURES_DEFAULT };
-        this._vidyoCore.Controllers.LogController.LogDebug(() => {
-            return `Input properties: ${JSON.stringify({
-                productInfo: options.productInfo.map(({ name }) => name),
-                supportedFeature: options.supportedFeature.map(({ name }) => name)
-            }, null, 2)}`;
-        });
-        options.productInfo.forEach((vidyoProperty) => {
-            this._productInfo[vidyoProperty.name] = vidyoProperty.value;
-        });
-        options.supportedFeature.forEach((vidyoProperty) => {
-            this._supportedFeatures[vidyoProperty.name] = vidyoProperty.value;
-        });
-        const productInfo = { ...this._productInfo };
-        if (this._vidyoCore.Controllers.AdvancedSettingsController.ExtData !== undefined) {
-            if (ProductInfo_1.ProductInfoName.extData in productInfo) {
-                this._vidyoCore.Controllers.LogController.LogInfo('Reset "extData" in advanced settings due to it is provided in product info');
-                this._vidyoCore.Controllers.AdvancedSettingsController.ExtData = undefined;
-            }
-            else {
-                this._vidyoCore.Controllers.LogController.LogInfo('Use "extData" from advanced settings due to it is missing in product info');
-                productInfo[ProductInfo_1.ProductInfoName.extData] = this._vidyoCore.Controllers.AdvancedSettingsController.ExtData;
-            }
-        }
-        if (this._vidyoCore.Controllers.AdvancedSettingsController.ExtDataType !== undefined) {
-            if (ProductInfo_1.ProductInfoName.extDataType in productInfo) {
-                this._vidyoCore.Controllers.LogController.LogInfo('Reset "extDataType" in advanced settings due to it is provided in product info');
-                this._vidyoCore.Controllers.AdvancedSettingsController.ExtDataType = undefined;
-            }
-            else {
-                this._vidyoCore.Controllers.LogController.LogInfo('Use "extDataType" from advanced settings due to it is missing in product info');
-                productInfo[ProductInfo_1.ProductInfoName.extDataType] = this._vidyoCore.Controllers.AdvancedSettingsController.ExtDataType;
-            }
-        }
-        this._updateEndpointDetails(productInfo, this._supportedFeatures);
+        this._vidyoCore.Controllers.ConnectionController.ReflectorsPoolName = options.name;
         return Promise.resolve(true);
     }
     SetPreview(options) {
@@ -42862,18 +40323,6 @@ let EndPoint = class EndPoint {
     }
     StartDeviceDetection() {
         return this._vidyoCore.Controllers.DeviceController.StartDeviceDetection();
-    }
-    StartGoogleAnalyticsService(options) {
-        return this._vidyoCore.Controllers.AnalyticsController.StartGoogleAnalytics(options.trackingID);
-    }
-    StartInsightsService(options) {
-        return this._vidyoCore.Controllers.AnalyticsController.StartVidyoInsights(options.serverUrl);
-    }
-    StopGoogleAnalyticsService() {
-        return this._vidyoCore.Controllers.AnalyticsController.StopGoogleAnalytics();
-    }
-    StopInsightsService() {
-        return this._vidyoCore.Controllers.AnalyticsController.StopVidyoInsights();
     }
     StartLocationDetection() {
         (0, NotImplemented_1.NotImplemented)();
@@ -42955,10 +40404,6 @@ let EndPoint = class EndPoint {
     }
     UnregisterVideoTileEventListener() {
         this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.VidyoRenderVideoTileEventListener);
-        return Promise.resolve(true);
-    }
-    UnregisterCompositorViewChangeEventListener() {
-        this._vidyoCore.EventDispatcher.releaseGroup(EventDispatcher_1.VidyoRenderCompositorViewChangeEventListener);
         return Promise.resolve(true);
     }
     _createEndpointID() {
@@ -43095,28 +40540,14 @@ let EndPoint = class EndPoint {
         this._vidyoCore.Controllers.DeviceController
             .SetDefaultSpeaker(speaker !== null ? new Speaker_1.Speaker(speaker.name, speaker.id, speaker.objId) : null);
     }
-    _updateEndpointDetails(productInfo, supportedFeatures) {
-        const vidyoCoreProductInfo = (0, ProductInfo_1.GetVidyoCoreProductInfo)(productInfo);
-        const vidyoCoreSupportedFeatures = (0, ProductInfo_1.GetVidyoCoreSupportedFeatures)(supportedFeatures);
-        this._vidyoCore.Controllers.ConnectionController.SetEndpointDetails(vidyoCoreProductInfo, vidyoCoreSupportedFeatures);
-    }
 };
-__decorate([
-    Decorators_1.once
-], EndPoint.prototype, "_registerLocalCameraPlugInOutManager", null);
-__decorate([
-    Decorators_1.once
-], EndPoint.prototype, "_registerLocalMicrophonePlugInOutManager", null);
-__decorate([
-    Decorators_1.once
-], EndPoint.prototype, "_registerLocalSpeakerPlugInOutManager", null);
 EndPoint = __decorate([
     JSValidation_1.default
 ], EndPoint);
 exports.EndPoint = EndPoint;
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/EndPoint.ts")
-},{"../core/events/AdvancedSettingsEvents":57,"../core/events/ConnectionEvents":61,"../core/events/DeviceEvents":62,"../core/events/EventDispatcher":63,"../core/events/LogEvents":64,"../core/events/RenderEvents":70,"../core/events/StreamEvents":74,"../core/models/APITypes":85,"../core/models/ProductInfo":92,"../core/models/RendererTypes":93,"../core/models/VidyoProperty":98,"../core/models/device/Camera":101,"../core/models/device/Microphone":105,"../core/models/device/Speaker":106,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/Decorators":139,"../core/utils/EndpointInfoProvider":141,"../core/utils/JSValidation":147,"../core/utils/LocalStorageProvider":148,"../core/utils/LocationProvider":149,"../core/utils/NotImplemented":154,"../core/utils/OperatingSystemInfoProvider":156,"../core/utils/VidyoDebugger":172,"../vidyo_simple_api/Participant":191,"./Devices":187,"./Monitor":189,"./Origin":190,"./WindowShare":196,"./stats/Stats":219,"uuid":8}],189:[function(require,module,exports){
+},{"../core/controllers/AnalyticsController/AnalyticsController":26,"../core/events/AdvancedSettingsEvents":55,"../core/events/ConnectionEvents":59,"../core/events/DeviceEvents":60,"../core/events/EventDispatcher":61,"../core/events/LogEvents":62,"../core/events/RenderEvents":68,"../core/events/StreamEvents":72,"../core/models/APITypes":83,"../core/models/RendererTypes":90,"../core/models/device/Camera":95,"../core/models/device/Microphone":99,"../core/models/device/Speaker":100,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/JSValidation":142,"../core/utils/LocalStorageProvider":143,"../core/utils/LocationProvider":144,"../core/utils/NotImplemented":149,"../core/utils/OperatingSystemInfoProvider":151,"../core/utils/VidyoDebugger":167,"../vidyo_connector_api/VidyoConnector":178,"../vidyo_simple_api/Participant":185,"./Devices":181,"./Monitor":183,"./Origin":184,"./WindowShare":190,"./stats/Stats":213,"uuid":7}],183:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -43148,7 +40579,7 @@ class Monitor extends BaseModel_1.BaseModel {
 exports.Monitor = Monitor;
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/Monitor.ts")
-},{"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/VidyoDebugger":172,"./BaseModel":185,"./Origin":190,"uuid":8}],190:[function(require,module,exports){
+},{"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/VidyoDebugger":167,"./BaseModel":179,"./Origin":184,"uuid":7}],184:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FromCoreOrigin = exports.Origin = void 0;
@@ -43167,7 +40598,7 @@ function FromCoreOrigin(coreOrigin) {
 }
 exports.FromCoreOrigin = FromCoreOrigin;
 
-},{"../core/models/Participant":90}],191:[function(require,module,exports){
+},{"../core/models/Participant":88}],185:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -43225,7 +40656,7 @@ var VidyoParticipantHandState;
 })(VidyoParticipantHandState = exports.VidyoParticipantHandState || (exports.VidyoParticipantHandState = {}));
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/Participant.ts")
-},{"../core/models/APITypes":85,"../core/utils/VidyoDebugger":172,"./BaseModel":185}],192:[function(require,module,exports){
+},{"../core/models/APITypes":83,"../core/utils/VidyoDebugger":167,"./BaseModel":179}],186:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Permission = exports.PermissionType = void 0;
@@ -43251,7 +40682,7 @@ class Permission {
 }
 exports.Permission = Permission;
 
-},{"../core/events/EventDispatcher":63,"../core/events/PermissionEvents":69,"../core/models/Permission":91,"../core/utils/AssignHiddenPropertyValue":135}],193:[function(require,module,exports){
+},{"../core/events/EventDispatcher":61,"../core/events/PermissionEvents":67,"../core/models/Permission":89,"../core/utils/AssignHiddenPropertyValue":130}],187:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -43530,7 +40961,7 @@ var VidyoRoomConferenceMode;
 })(VidyoRoomConferenceMode = exports.VidyoRoomConferenceMode || (exports.VidyoRoomConferenceMode = {}));
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/Room.ts")
-},{"../core/events/EventDispatcher":63,"../core/events/MessageEvents":65,"../core/events/ModerationEvents":67,"../core/events/ParticipantEvents":68,"../core/events/RoomEvents":72,"../core/events/StreamEvents":74,"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/Constants":138,"../core/utils/NotImplemented":154,"../core/utils/VidyoDebugger":172,"../vidyo_simple_api/ChatMessage":186,"../vidyo_simple_api/Participant":191,"uuid":8}],194:[function(require,module,exports){
+},{"../core/events/EventDispatcher":61,"../core/events/MessageEvents":63,"../core/events/ModerationEvents":65,"../core/events/ParticipantEvents":66,"../core/events/RoomEvents":70,"../core/events/StreamEvents":72,"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/Constants":133,"../core/utils/NotImplemented":149,"../core/utils/VidyoDebugger":167,"../vidyo_simple_api/ChatMessage":180,"../vidyo_simple_api/Participant":185,"uuid":7}],188:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -43738,7 +41169,7 @@ __decorate([
 exports.User = User;
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/User.ts")
-},{"../core/events/ConnectionEvents":61,"../core/events/EventDispatcher":63,"../core/events/RoomEvents":72,"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/Decorators":139,"../core/utils/NotImplemented":154,"../core/utils/VidyoDebugger":172,"../vidyo_connector_api/VidyoConnector":184,"./stats/Stats":219,"uuid":8}],195:[function(require,module,exports){
+},{"../core/events/ConnectionEvents":59,"../core/events/EventDispatcher":61,"../core/events/RoomEvents":70,"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/Decorators":134,"../core/utils/NotImplemented":149,"../core/utils/VidyoDebugger":167,"../vidyo_connector_api/VidyoConnector":178,"./stats/Stats":213,"uuid":7}],189:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -43853,7 +41284,7 @@ class Property {
 exports.Property = Property;
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/VidyoSimple.ts")
-},{"../core/VidyoCore":25,"../core/controllers/LogController/LogController":39,"../core/events/LogEvents":64,"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/VidyoDebugger":172,"./ChatMessage":186,"./Devices":187,"./EndPoint":188,"./Participant":191,"./Permission":192,"./Room":193,"./User":194,"uuid":8}],196:[function(require,module,exports){
+},{"../core/VidyoCore":24,"../core/controllers/LogController/LogController":37,"../core/events/LogEvents":62,"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/VidyoDebugger":167,"./ChatMessage":180,"./Devices":181,"./EndPoint":182,"./Participant":185,"./Permission":186,"./Room":187,"./User":188,"uuid":7}],190:[function(require,module,exports){
 (function (__filename){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -43887,15 +41318,11 @@ class WindowShare extends BaseModel_1.BaseModel {
         this._vidyoCore.Controllers.DeviceController.SetWindowSharePreviewLabel(options.previewLabel);
         return Promise.resolve(true);
     }
-    SetEndShareLabel(options) {
-        this._vidyoCore.Controllers.DeviceController.SetWindowShareEndLabel(options.endLabel);
-        return Promise.resolve(true);
-    }
 }
 exports.WindowShare = WindowShare;
 
 }).call(this)}).call(this,"/src/vidyo_simple_api/WindowShare.ts")
-},{"../core/models/APITypes":85,"../core/utils/AssignHiddenPropertyValue":135,"../core/utils/VidyoDebugger":172,"./BaseModel":185,"./Origin":190,"uuid":8}],197:[function(require,module,exports){
+},{"../core/models/APITypes":83,"../core/utils/AssignHiddenPropertyValue":130,"../core/utils/VidyoDebugger":167,"./BaseModel":179,"./Origin":184,"uuid":7}],191:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BandwidthSummaryStats = void 0;
@@ -43912,7 +41339,7 @@ class BandwidthSummaryStats {
 }
 exports.BandwidthSummaryStats = BandwidthSummaryStats;
 
-},{"../../core/models/statistics/Statistics":130}],198:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],192:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EndpointStats = void 0;
@@ -43920,18 +41347,14 @@ const Statistics_1 = require("../../core/models/statistics/Statistics");
 const Stats_1 = require("./Stats");
 class EndpointStats {
     constructor(coreEndpointStatistics = new Statistics_1.EndpointStatistics()) {
-        this.applicationName = coreEndpointStatistics.ApplicationName;
         this.applicationTag = coreEndpointStatistics.ApplicationTag;
-        this.applicationVersion = coreEndpointStatistics.ApplicationVersion;
         this.buildTag = coreEndpointStatistics.BuildTag;
         this.bytesReceivedTcp = coreEndpointStatistics.BytesReceivedTcp;
         this.bytesReceivedUdp = coreEndpointStatistics.BytesReceivedUdp;
         this.bytesSentTcp = coreEndpointStatistics.BytesSentTcp;
         this.bytesSentUdp = coreEndpointStatistics.BytesSentUdp;
         this.connectTime = coreEndpointStatistics.ConnectTime;
-        this.iceGatheringTimeConsumedMs = coreEndpointStatistics.IceGatheringTimeConsumedMs;
         this.id = coreEndpointStatistics.Id;
-        this.joinWebTimeConsumedMs = coreEndpointStatistics.JoinWebTimeConsumedMs;
         this.libraryVersion = coreEndpointStatistics.LibraryVersion;
         this.localCameraStats = coreEndpointStatistics.LocalCameraStats
             .map((obj) => new Stats_1.LocalVideoSourceStats(obj));
@@ -43945,14 +41368,12 @@ class EndpointStats {
             .map((obj) => new Stats_1.LocalSpeakerStats(obj));
         this.localWindowShareStats = coreEndpointStatistics.LocalWindowShareStats
             .map((obj) => new Stats_1.LocalVideoSourceStats(obj));
-        this.locationTagDetectionTimeConsumedMs = coreEndpointStatistics.LocationTagDetectionTimeConsumedMs;
         this.loginTimeConsumedMs = coreEndpointStatistics.LoginTimeConsumedMs;
         this.logStats = new Stats_1.LogStats(coreEndpointStatistics.LogStats);
         this.maxBitRate = coreEndpointStatistics.MaxBitRate;
         this.maxEncodePixelRateInitial = coreEndpointStatistics.MaxEncodePixelRateInitial;
         this.mediaEnableTimeConsumedMs = coreEndpointStatistics.MediaEnableTimeConsumedMs;
         this.mediaRouteAcquireTimeConsumedMs = coreEndpointStatistics.MediaRouteAcquireTimeConsumedMs;
-        this.mediaRouteConnectionTimeConsumedMs = coreEndpointStatistics.MediaRouteConnectionTimeConsumedMs;
         this.networkInterfaceStats = coreEndpointStatistics.NetworkInterfaceStats
             .map((obj) => new Stats_1.NetworkInterfaceStats(obj));
         this.osName = coreEndpointStatistics.OsName;
@@ -43971,7 +41392,7 @@ class EndpointStats {
 }
 exports.EndpointStats = EndpointStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],199:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],193:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyTestDataStats = void 0;
@@ -43988,7 +41409,7 @@ class LatencyTestDataStats {
 }
 exports.LatencyTestDataStats = LatencyTestDataStats;
 
-},{"../../core/models/statistics/Statistics":130}],200:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],194:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyTestStats = void 0;
@@ -44002,7 +41423,7 @@ class LatencyTestStats {
 }
 exports.LatencyTestStats = LatencyTestStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],201:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],195:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalMicrophoneStats = void 0;
@@ -44028,7 +41449,7 @@ class LocalMicrophoneStats {
 }
 exports.LocalMicrophoneStats = LocalMicrophoneStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],202:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],196:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalRendererStats = void 0;
@@ -44048,7 +41469,7 @@ class LocalRendererStats {
 }
 exports.LocalRendererStats = LocalRendererStats;
 
-},{"../../core/models/statistics/Statistics":130}],203:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],197:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalRendererStreamStats = void 0;
@@ -44065,7 +41486,7 @@ class LocalRendererStreamStats {
 }
 exports.LocalRendererStreamStats = LocalRendererStreamStats;
 
-},{"../../core/models/statistics/Statistics":130}],204:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],198:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalSpeakerStats = void 0;
@@ -44083,7 +41504,7 @@ class LocalSpeakerStats {
 }
 exports.LocalSpeakerStats = LocalSpeakerStats;
 
-},{"../../core/models/statistics/Statistics":130}],205:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],199:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalSpeakerStreamStats = void 0;
@@ -44111,7 +41532,7 @@ class LocalSpeakerStreamStats {
 }
 exports.LocalSpeakerStreamStats = LocalSpeakerStreamStats;
 
-},{"../../core/models/statistics/Statistics":130}],206:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],200:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocalVideoSourceStats = void 0;
@@ -44140,7 +41561,7 @@ class LocalVideoSourceStats {
 }
 exports.LocalVideoSourceStats = LocalVideoSourceStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],207:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],201:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogDataStats = void 0;
@@ -44155,7 +41576,7 @@ class LogDataStats {
 }
 exports.LogDataStats = LogDataStats;
 
-},{"../../core/models/statistics/Statistics":130}],208:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],202:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogStats = void 0;
@@ -44171,7 +41592,7 @@ class LogStats {
 }
 exports.LogStats = LogStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],209:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],203:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaConnectionTransportInfo = void 0;
@@ -44194,7 +41615,7 @@ class MediaConnectionTransportInfo {
 }
 exports.MediaConnectionTransportInfo = MediaConnectionTransportInfo;
 
-},{"../../core/models/statistics/Statistics":130}],210:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],204:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetworkInterfaceStats = void 0;
@@ -44208,7 +41629,7 @@ class NetworkInterfaceStats {
 }
 exports.NetworkInterfaceStats = NetworkInterfaceStats;
 
-},{"../../core/models/statistics/Statistics":130}],211:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],205:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ParticipantGenerationStats = void 0;
@@ -44230,7 +41651,7 @@ class ParticipantGenerationStats {
 }
 exports.ParticipantGenerationStats = ParticipantGenerationStats;
 
-},{"../../core/models/statistics/Statistics":130}],212:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],206:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ParticipantStats = void 0;
@@ -44251,7 +41672,7 @@ class ParticipantStats {
 }
 exports.ParticipantStats = ParticipantStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],213:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],207:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RateShaperStats = void 0;
@@ -44267,7 +41688,7 @@ class RateShaperStats {
 }
 exports.RateShaperStats = RateShaperStats;
 
-},{"../../core/models/statistics/Statistics":130}],214:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],208:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteMicrophoneStats = void 0;
@@ -44297,7 +41718,7 @@ class RemoteMicrophoneStats {
 }
 exports.RemoteMicrophoneStats = RemoteMicrophoneStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],215:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],209:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteRendererStreamStats = void 0;
@@ -44329,7 +41750,7 @@ class RemoteRendererStreamStats {
 }
 exports.RemoteRendererStreamStats = RemoteRendererStreamStats;
 
-},{"../../core/models/statistics/Statistics":130}],216:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],210:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteSpeakerStreamStats = void 0;
@@ -44349,7 +41770,7 @@ class RemoteSpeakerStreamStats {
 }
 exports.RemoteSpeakerStreamStats = RemoteSpeakerStreamStats;
 
-},{"../../core/models/statistics/Statistics":130}],217:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125}],211:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RemoteVideoSourceStats = void 0;
@@ -44389,7 +41810,7 @@ class RemoteVideoSourceStats {
 }
 exports.RemoteVideoSourceStats = RemoteVideoSourceStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}],218:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}],212:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RoomStats = void 0;
@@ -44436,7 +41857,7 @@ class RoomStats {
 }
 exports.RoomStats = RoomStats;
 
-},{"../../core/models/statistics/Statistics":130,"./BandwidthSummaryStats":197,"./RateShaperStats":213,"./Stats":219}],219:[function(require,module,exports){
+},{"../../core/models/statistics/Statistics":125,"./BandwidthSummaryStats":191,"./RateShaperStats":207,"./Stats":213}],213:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyTestStats = exports.LatencyTestDataStats = exports.LogStats = exports.LogDataStats = exports.UserStats = exports.RoomStats = exports.RemoteVideoSourceStats = exports.RemoteSpeakerStreamStats = exports.RemoteRendererStreamStats = exports.RemoteMicrophoneStats = exports.RateShaperStats = exports.ParticipantStats = exports.ParticipantGenerationStats = exports.NetworkInterfaceStats = exports.MediaConnectionTransportInfo = exports.LocalVideoSourceStats = exports.LocalSpeakerStreamStats = exports.LocalSpeakerStats = exports.LocalRendererStreamStats = exports.LocalRendererStats = exports.LocalMicrophoneStats = exports.EndpointStats = exports.BandwidthSummaryStats = void 0;
@@ -44487,7 +41908,7 @@ Object.defineProperty(exports, "LatencyTestDataStats", { enumerable: true, get: 
 var LatencyTestStats_1 = require("./LatencyTestStats");
 Object.defineProperty(exports, "LatencyTestStats", { enumerable: true, get: function () { return LatencyTestStats_1.LatencyTestStats; } });
 
-},{"./BandwidthSummaryStats":197,"./EndpointStats":198,"./LatencyTestDataStats":199,"./LatencyTestStats":200,"./LocalMicrophoneStats":201,"./LocalRendererStats":202,"./LocalRendererStreamStats":203,"./LocalSpeakerStats":204,"./LocalSpeakerStreamStats":205,"./LocalVideoSourceStats":206,"./LogDataStats":207,"./LogStats":208,"./MediaConnectionTransportInfo":209,"./NetworkInterfaceStats":210,"./ParticipantGenerationStats":211,"./ParticipantStats":212,"./RateShaperStats":213,"./RemoteMicrophoneStats":214,"./RemoteRendererStreamStats":215,"./RemoteSpeakerStreamStats":216,"./RemoteVideoSourceStats":217,"./RoomStats":218,"./UserStats":220}],220:[function(require,module,exports){
+},{"./BandwidthSummaryStats":191,"./EndpointStats":192,"./LatencyTestDataStats":193,"./LatencyTestStats":194,"./LocalMicrophoneStats":195,"./LocalRendererStats":196,"./LocalRendererStreamStats":197,"./LocalSpeakerStats":198,"./LocalSpeakerStreamStats":199,"./LocalVideoSourceStats":200,"./LogDataStats":201,"./LogStats":202,"./MediaConnectionTransportInfo":203,"./NetworkInterfaceStats":204,"./ParticipantGenerationStats":205,"./ParticipantStats":206,"./RateShaperStats":207,"./RemoteMicrophoneStats":208,"./RemoteRendererStreamStats":209,"./RemoteSpeakerStreamStats":210,"./RemoteVideoSourceStats":211,"./RoomStats":212,"./UserStats":214}],214:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserStats = void 0;
@@ -44506,4 +41927,4 @@ class UserStats {
 }
 exports.UserStats = UserStats;
 
-},{"../../core/models/statistics/Statistics":130,"./Stats":219}]},{},[176]);
+},{"../../core/models/statistics/Statistics":125,"./Stats":213}]},{},[171]);
